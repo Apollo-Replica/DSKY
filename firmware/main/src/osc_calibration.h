@@ -9,10 +9,10 @@
 
 // Calibration sweep settings (override via -D flags as needed).
 #ifndef OSC_CAL_SWEEP_START
-#define OSC_CAL_SWEEP_START 0x60
+#define OSC_CAL_SWEEP_START 0x00
 #endif
 #ifndef OSC_CAL_SWEEP_END
-#define OSC_CAL_SWEEP_END 0xC0
+#define OSC_CAL_SWEEP_END 0xFF
 #endif
 #ifndef OSC_CAL_SWEEP_STEP
 #define OSC_CAL_SWEEP_STEP 1
