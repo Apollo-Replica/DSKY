@@ -26,6 +26,8 @@ export default function ConfigPageContent() {
     const wsRef = useRef<WebSocket | null>(null)
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const mountedRef = useRef(true)
+    // Track if the DSKY was already ready when we first connected
+    const initialReadyRef = useRef<boolean | null>(null)
 
     const connect = useCallback(() => {
         // Don't connect if unmounted or already connected/connecting
@@ -50,6 +52,18 @@ export default function ConfigPageContent() {
             try {
                 const data = JSON.parse(event.data)
                 if (data.config && mountedRef.current) {
+                    // Track if ready was true on first message (user arrived while already configured)
+                    if (initialReadyRef.current === null) {
+                        initialReadyRef.current = data.config.ready
+                    }
+                    
+                    // If configuration just completed (ready became true, but wasn't initially ready),
+                    // navigate to main page
+                    if (data.config.ready && initialReadyRef.current === false) {
+                        router.push('/')
+                        return
+                    }
+                    
                     setConfigState(data.config)
                 }
             } catch (e) {
@@ -168,6 +182,8 @@ export default function ConfigPageContent() {
     const handleReset = () => {
         const ws = wsRef.current
         if (ws && ws.readyState === WebSocket.OPEN) {
+            // Reset tracking so we navigate to main page when config completes
+            initialReadyRef.current = false
             ws.send(JSON.stringify({ type: 'config:reset' }))
         }
     }
@@ -184,7 +200,8 @@ export default function ConfigPageContent() {
         )
     }
 
-    // If config is ready (running mode), show current settings instead of config wizard
+    // If user arrived at /config while already configured, show current settings
+    // (If they just finished configuring, they would have been redirected to main page)
     if (configState?.ready) {
         return (
             <main className="flex min-h-screen flex-col items-center justify-center bg-black text-green-500 font-mono p-8">
