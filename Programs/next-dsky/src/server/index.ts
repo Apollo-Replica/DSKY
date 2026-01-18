@@ -103,10 +103,6 @@ const startSelectedIntegration = async (config: ConfigResult) => {
         selectedIndex: 0,
         options: []
     })
-
-    if (programOptions.callback) {
-        exec(programOptions.callback)
-    }
 }
 
 const triggerNetworkScan = async () => {

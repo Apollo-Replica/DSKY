@@ -1,20 +1,26 @@
 #!/bin/bash
 
-if [ "$1" = "api" ];then
-    shift
-    xttitle api-dsky
-    unclutter -idle 3 -root &>/dev/null &
-    while true; do
-        wmctrl -a api-dsky
-        killall chromium-browser &>/dev/null
-        cd ~/DSKY/Programs/api-dsky
-        npm start -- \
-            -s /dev/ttyUSB0 \
-            --callback 'chromium-browser --start-fullscreen --incognito http://localhost:3000 && sleep 5 && wmctrl -a chromium' \
-            --shutdown 'shutdown -h now' $@
-    done
-elif [ "$1" = "cron" ]; then
-    pgrep chromium | xargs kill -9
+# DSKY launcher for Orange Pi
+# - Starts `next-dsky` (server + UI) and opens Chromium fullscreen
+# - Keeps the existing `cron` mode (re-open Chromium if it died)
+
+start_chromium() {
+    killall chromium-browser chromium &>/dev/null
+    chromium-browser --start-fullscreen --incognito http://localhost:3000 &
+    sleep 5
+    wmctrl -a chromium
+}
+
+start_next_dsky() {
+    cd ~/DSKY/Programs/next-dsky
+    npm start -- \
+        -s /dev/ttyUSB0 \
+        --shutdown 'shutdown -h now' "$@" &
+    echo $!
+}
+
+if [ "$1" = "cron" ]; then
+    killall chromium-browser chromium &>/dev/null
     if [ $? -eq 0 ]; then
         export DISPLAY=:0
         chromium-browser --start-fullscreen --incognito http://localhost:3000 &
@@ -22,8 +28,14 @@ elif [ "$1" = "cron" ]; then
         wmctrl -a chromium
     fi
 else
-    xttitle web-dsky
-    x-terminal-emulator -e "~/DSKY/orangepi.sh api $@" &>/dev/null &
-    cd ~/DSKY/Programs/web-dsky
-    npm start
+    xttitle next-dsky
+    unclutter -idle 3 -root &>/dev/null &
+
+    while true; do
+        wmctrl -a next-dsky
+        next_pid="$(start_next_dsky "$@")"
+        start_chromium
+        wait "$next_pid"
+        sleep 1
+    done
 fi
