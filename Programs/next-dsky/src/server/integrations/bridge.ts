@@ -1,28 +1,22 @@
-import { client as WebSocketClient, connection as WebSocketConnection } from 'websocket'
+import WebSocket from 'ws'
 import { AgcIntegration } from './AgcIntegration'
 
 export class BridgeIntegration extends AgcIntegration {
     readonly name = 'Bridge'
     readonly id = 'bridge'
-    
-    private client: WebSocketClient | null = null
-    private activeConnection: WebSocketConnection | null = null
+
+    private ws: WebSocket | null = null
     private bridgeHost: string = ''
     private shouldReconnect = true
 
     async handleKey(key: string): Promise<void> {
-        if (this.activeConnection) {
-            this.activeConnection.sendUTF(key)
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(key)
         }
     }
 
     protected async onStart(options: Record<string, any>): Promise<void> {
-        this.client = new WebSocketClient()
         this.shouldReconnect = true
-        
-        this.client.on('connectFailed', () => this.onDisconnect())
-        this.client.on('connect', (connection) => this.onConnect(connection))
-        
         this.bridgeHost = options.bridgeUrl || 'wss://dsky.ortizma.com/ws'
         console.log(`[Bridge] Connecting to: ${this.bridgeHost}`)
         this.connectClient()
@@ -30,36 +24,42 @@ export class BridgeIntegration extends AgcIntegration {
 
     protected onStop(): void {
         this.shouldReconnect = false
-        if (this.activeConnection) {
-            this.activeConnection.close()
-            this.activeConnection = null
+        if (this.ws) {
+            this.ws.close()
+            this.ws = null
         }
-        this.client = null
     }
 
     private async onDisconnect(): Promise<void> {
-        this.activeConnection = null
+        this.ws = null
         if (!this.shouldReconnect || !this.running) return
-        console.log('[Bridge] Connection failed, reconnecting...')
+        console.log('[Bridge] Connection closed, reconnecting...')
         await new Promise(r => setTimeout(r, 1000))
         if (this.shouldReconnect && this.running) {
             this.connectClient()
         }
     }
 
-    private onConnect(connection: WebSocketConnection): void {
-        console.log('[Bridge] Connected!')
-        this.activeConnection = connection
-        connection.on('message', (message: any) => {
-            if (message.type === 'utf8') {
-                this.emitState(JSON.parse(message.utf8Data))
+    private connectClient(): void {
+        if (!this.shouldReconnect || !this.running) return
+
+        this.ws = new WebSocket(this.bridgeHost)
+
+        this.ws.on('open', () => {
+            console.log('[Bridge] Connected!')
+        })
+
+        this.ws.on('message', (data: WebSocket.Data) => {
+            try {
+                this.emitState(JSON.parse(data.toString()))
+            } catch (e) {
+                // Ignore non-JSON messages
             }
         })
-        connection.on('close', () => this.onDisconnect())
-    }
 
-    private connectClient(): void {
-        if (!this.client || !this.shouldReconnect || !this.running) return
-        this.client.connect(this.bridgeHost, 'echo-protocol')
+        this.ws.on('close', () => this.onDisconnect())
+        this.ws.on('error', (err) => {
+            console.error('[Bridge] WebSocket error:', err.message)
+        })
     }
 }
