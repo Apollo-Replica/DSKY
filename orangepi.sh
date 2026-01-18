@@ -24,6 +24,11 @@ else
             --shutdown 'shutdown -h now' "$@" &
         next_pid=$!
         killall chromium-browser chromium &>/dev/null
+        # Wait until the :3000 app is actually responding before opening Chromium.
+        while true; do
+            curl -fsS http://localhost:3000 >/dev/null 2>&1 && break
+            sleep 1
+        done
         chromium-browser --start-fullscreen --incognito http://localhost:3000 &
         sleep 5
         wait "$next_pid"
