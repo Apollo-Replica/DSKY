@@ -1,0 +1,3 @@
+[submodule "Programs/DSKY-Bridge"]
+	path = Programs/DSKY-Bridge
+	url = git@github.com:nhadrian/DSKY-Bridge.git
