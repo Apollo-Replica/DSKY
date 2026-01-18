@@ -11,9 +11,20 @@ export interface DiscoveredAPI {
 const SCAN_TIMEOUT = 200 // ms
 const DSKY_PORTS = [3001, 3000] // Default DSKY API ports
 
+// How many /24 subnets to scan on either side of each local subnet.
+// Example: local 192.168.6.x with span=4 will scan 192.168.2.x .. 192.168.10.x
+const NEIGHBOR_SUBNET_SPAN = parseInt(process.env.DSKY_SCAN_NEIGHBOR_SPAN || '4', 10)
+
+// Optional: add explicit subnets (first 3 octets) to scan, comma-separated.
+// Example: "192.168.4,192.168.6"
+const EXTRA_SUBNETS = (process.env.DSKY_SCAN_SUBNETS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+
 const getLocalSubnets = (): string[] => {
     const interfaces = os.networkInterfaces()
-    const subnets: string[] = []
+    const subnets = new Set<string>()
 
     for (const name of Object.keys(interfaces)) {
         const iface = interfaces[name]
@@ -26,12 +37,31 @@ const getLocalSubnets = (): string[] => {
             // Extract subnet (first 3 octets)
             const parts = info.address.split('.')
             if (parts.length === 4) {
-                subnets.push(`${parts[0]}.${parts[1]}.${parts[2]}`)
+                const a = parts[0]
+                const b = parts[1]
+                const c = parseInt(parts[2], 10)
+                if (Number.isFinite(c)) {
+                    // Always include the local /24
+                    subnets.add(`${a}.${b}.${c}`)
+
+                    // Also scan neighbor /24s so we can find nearby routed subnets
+                    // (common when the DSKY API is on a different VLAN but still reachable).
+                    for (let dc = -NEIGHBOR_SUBNET_SPAN; dc <= NEIGHBOR_SUBNET_SPAN; dc++) {
+                        const c2 = c + dc
+                        if (c2 >= 0 && c2 <= 255) {
+                            subnets.add(`${a}.${b}.${c2}`)
+                        }
+                    }
+                }
             }
         }
     }
 
-    return subnets
+    for (const subnet of EXTRA_SUBNETS) {
+        subnets.add(subnet)
+    }
+
+    return Array.from(subnets)
 }
 
 const checkPort = (ip: string, port: number): Promise<boolean> => {
@@ -89,7 +119,8 @@ export const scanForDSKYApis = async (onProgress?: (current: number, total: numb
 
                     if (isOpen) {
                         const protocol = port === 443 ? 'wss' : 'ws'
-                        const path = port === 443 ? '/ws' : ''
+                        // next-dsky's websocket endpoint is always /ws
+                        const path = '/ws'
                         return {
                             ip,
                             port,
