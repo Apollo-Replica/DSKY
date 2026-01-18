@@ -19,16 +19,23 @@ const stopIntegration = () => {
 }
 
 // Perform full reset - stop integration, close serial, switch to config
-const performReset = () => {
+const performReset = async () => {
     console.log('[Server] Performing full reset')
     stopIntegration()
     closeSerial()
-    startConfigMode()
+
+    // Reopen serial if it was specified via CLI (needed for config navigation)
+    if (programOptions.serial) {
+        await createSerial(programOptions.serial, programOptions.baud)
+    }
+
+    await startConfigMode()
 }
 
 const startConfigMode = async () => {
     // Create and start config integration
-    configIntegration = new ConfigIntegration()
+    // Pass preset serial port if specified via CLI
+    configIntegration = new ConfigIntegration(programOptions.serial)
     
     // Set up config state broadcasting
     configIntegration.setConfigCallback((configState) => {
@@ -170,10 +177,13 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                 await triggerNetworkScan()
                 break
             case 'config:next':
-                await configIntegration.handleKey('+')
+                // In config mode, '+' and '-' are inverted (hardware behavior).
+                // Keep "next" semantics for the web UI by sending the '-' key.
+                await configIntegration.handleKey('-')
                 break
             case 'config:prev':
-                await configIntegration.handleKey('-')
+                // Keep "prev" semantics for the web UI by sending the '+' key.
+                await configIntegration.handleKey('+')
                 break
             case 'config:select':
                 await configIntegration.handleKey('e')

@@ -50,9 +50,11 @@ export class ConfigIntegration extends AgcIntegration {
     private configCallback: ((state: ConfigState) => void) | null = null
     private onComplete: ((result: ConfigResult) => void) | null = null
     private onScanRequest: (() => void) | null = null
+    private presetSerialPort: string | null = null
 
-    constructor() {
+    constructor(presetSerialPort?: string) {
         super()
+        this.presetSerialPort = presetSerialPort || null
         this.configState = this.createInitialState()
     }
 
@@ -123,11 +125,11 @@ export class ConfigIntegration extends AgcIntegration {
         switch (key) {
             case '+':
             case 'v':
-                this.next()
+                this.prev()
                 break
             case '-':
             case 'n':
-                this.prev()
+                this.next()
                 break
             case 'e':
             case 'p':
@@ -208,7 +210,17 @@ export class ConfigIntegration extends AgcIntegration {
     protected async onStart(_options: Record<string, any>): Promise<void> {
         console.log('[Config] Starting config mode')
         this.configState = this.createInitialState()
-        await this.refreshSerialPorts()
+
+        // If serial port is preset via CLI, skip serial step
+        if (this.presetSerialPort) {
+            console.log(`[Config] Using preset serial port: ${this.presetSerialPort}`)
+            this.configState.serialPort = this.presetSerialPort
+            this.configState.step = 'source'
+            this.configState.options = this.buildOptionsForStep('source', this.configState)
+        } else {
+            await this.refreshSerialPorts()
+        }
+
         // Emit initial DSKY state (shows test pattern during config)
         this.emitState(V35_TEST)
     }

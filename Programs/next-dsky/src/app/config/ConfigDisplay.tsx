@@ -31,12 +31,12 @@ const STEP_TITLES: Record<string, string> = {
 }
 
 const STEP_NUMBERS: Record<string, string> = {
-    serial: '01',
-    source: '02',
-    bridge: '03',
-    manualUrl: '03',
-    yaagc: '03',
-    confirm: '04'
+    serial: '00',
+    source: '01',
+    bridge: '02',
+    manualUrl: '02',
+    yaagc: '02',
+    confirm: '03'
 }
 
 export default function ConfigDisplay({ config, onAction, onTextChange }: ConfigDisplayProps) {
@@ -169,9 +169,9 @@ export default function ConfigDisplay({ config, onAction, onTextChange }: Config
                 <div className="border-t border-gray-700 pt-4">
                     <div className="text-gray-500 font-mono text-xs text-center space-y-1">
                         <div>
-                            <span className="text-green-400">+</span> / <span className="text-green-400">V</span> / <span className="text-green-400">↓</span> = Next
+                            <span className="text-green-400">+</span> / <span className="text-green-400">V</span> / <span className="text-green-400">↑</span> = Prev
                             {' | '}
-                            <span className="text-green-400">-</span> / <span className="text-green-400">N</span> / <span className="text-green-400">↑</span> = Prev
+                            <span className="text-green-400">-</span> / <span className="text-green-400">N</span> / <span className="text-green-400">↓</span> = Next
                         </div>
                         <div>
                             <span className="text-green-400">E</span> / <span className="text-green-400">Enter</span> = Select
