@@ -1,8 +1,9 @@
-import * as fs from 'fs';
+import * as fs from 'fs'
 import * as net from 'net'
-import * as psList from 'ps-list-commonjs';
+import * as psList from 'ps-list-commonjs'
 import pidCwd from 'pid-cwd'
-import { createWatcher } from '../filesystem';
+import { createWatcher } from '../filesystem'
+import { AgcIntegration } from './AgcIntegration'
 
 const kOSDictionary: Record<string, string> = {
     COMP_ACTY: 'IlluminateCompLight',
@@ -53,7 +54,7 @@ const kOSJSONtoNormalJSON = (kOSJSON: any): any => {
         const valueIndex = (i * 2) + 1
         const keyValue = kOSDictionary[kOSJSON.entries[keyIndex].value] || kOSJSON.entries[keyIndex].value
         let value = kOSJSON.entries[valueIndex].value
-        if (value == 'b') value = ''
+        if (value === 'b') value = ''
         normalJSON[keyValue] = value
     }
     return normalJSON
@@ -61,119 +62,158 @@ const kOSJSONtoNormalJSON = (kOSJSON: any): any => {
 
 const getKSPPath = async (): Promise<string | undefined> => {
     const list = await (psList as any)()
-    const kspProcess = list.find((p: any) => p.name == 'KSP_x64.exe')
+    const kspProcess = list.find((p: any) => p.name === 'KSP_x64.exe')
     if (kspProcess) {
         const cwd = await pidCwd(kspProcess.pid)
-        if (!cwd) console.log(
-            "[KSP] Windows is not returning the KSP path to this shell.\n",
-            "If you're running KSP as Administrator, you will need to run the API as administrator, too.\n",
-            "Thanks, Microsoft!\n\n"
-        )
-        else return cwd
-    } else console.log("[KSP] KSP is not running!")
+        if (!cwd) {
+            console.log(
+                "[KSP] Windows is not returning the KSP path to this shell.\n",
+                "If you're running KSP as Administrator, you will need to run the API as administrator, too.\n",
+                "Thanks, Microsoft!\n\n"
+            )
+        } else {
+            return cwd
+        }
+    } else {
+        console.log("[KSP] KSP is not running!")
+    }
 
     await new Promise(r => setTimeout(r, 2000))
     return undefined
 }
 
-export const watchStateKSP = async (callback: (state: any) => void) => {
-    let kspPath: string | undefined
-    let stopped = false
+export class KSPIntegration extends AgcIntegration {
+    readonly name = 'KSP'
+    readonly id = 'ksp'
     
-    while (!kspPath && !stopped) {
-        kspPath = await getKSPPath()
-    }
-    
-    if (stopped || !kspPath) return () => {}
+    private kspPath: string | undefined
+    private watcherHandle: { cancel: () => void } | null = null
+    private kspCheckInterval: ReturnType<typeof setInterval> | null = null
+    private telnetClient: net.Socket | null = null
+    private keepAliveInterval: ReturnType<typeof setInterval> | null = null
+    private apolloCPU = 0
 
-    console.log(`[KSP] KSP detected on ${kspPath}`)
-
-    const jsonPath = `${kspPath}Ships\\Script\\kOS AGC\\DSKY\\AGCoutput.json`
-
-    const handleAGCUpdate = () => {
-        if (stopped) return
-        try {
-            const KOSState = JSON.parse(fs.readFileSync(jsonPath).toString())
-            const AGCState = kOSJSONtoNormalJSON(KOSState)
-            callback(AGCState)
-        } catch { }
-    }
-    const watcherHandle = createWatcher(jsonPath, handleAGCUpdate)
-
-    const kspCheckInterval = setInterval(async () => {
-        if (stopped) return
-        const newKspPath = await getKSPPath()
-        if (newKspPath != kspPath && !stopped) {
-            // KSP path changed, restart watcher
-            watcherHandle.cancel()
-            clearInterval(kspCheckInterval)
-            watchStateKSP(callback)
+    async handleKey(key: string): Promise<void> {
+        if (this.telnetClient) {
+            this.telnetClient.write(key)
         }
-    }, 5000)
-    
-    // Return cleanup function
-    return () => {
+    }
+
+    protected async onStart(_options: Record<string, any>): Promise<void> {
+        // Find KSP path
+        while (!this.kspPath && this.running) {
+            this.kspPath = await getKSPPath()
+        }
+
+        if (!this.running || !this.kspPath) return
+
+        console.log(`[KSP] KSP detected at ${this.kspPath}`)
+
+        const jsonPath = `${this.kspPath}Ships\\Script\\kOS AGC\\DSKY\\AGCoutput.json`
+
+        // Watch for AGC updates
+        this.watcherHandle = createWatcher(jsonPath, () => {
+            if (!this.running) return
+            try {
+                const KOSState = JSON.parse(fs.readFileSync(jsonPath).toString())
+                const AGCState = kOSJSONtoNormalJSON(KOSState)
+                this.emitState(AGCState)
+            } catch { }
+        })
+
+        // Periodically check if KSP path changed
+        this.kspCheckInterval = setInterval(async () => {
+            if (!this.running) return
+            const newKspPath = await getKSPPath()
+            if (newKspPath !== this.kspPath && this.running) {
+                // KSP path changed, restart watcher
+                this.watcherHandle?.cancel()
+                if (this.kspCheckInterval) clearInterval(this.kspCheckInterval)
+                this.kspPath = undefined
+                await this.onStart(_options)
+            }
+        }, 5000)
+
+        // Set up telnet connection for keyboard input
+        this.setupTelnetClient()
+    }
+
+    protected onStop(): void {
         console.log('[KSP] Closing watcher')
-        stopped = true
-        watcherHandle.cancel()
-        clearInterval(kspCheckInterval)
+        this.watcherHandle?.cancel()
+        this.watcherHandle = null
+        
+        if (this.kspCheckInterval) {
+            clearInterval(this.kspCheckInterval)
+            this.kspCheckInterval = null
+        }
+        
+        this.toggleKeepAlive(false)
+        
+        if (this.telnetClient) {
+            this.telnetClient.destroy()
+            this.telnetClient = null
+        }
+        
+        this.kspPath = undefined
     }
-}
 
-let keyboardHandler = (_data: string) => { }
-export const getKSPKeyboardHandler = async () => {
+    private setupTelnetClient(): void {
+        this.telnetClient = new net.Socket()
+        this.apolloCPU = 0
+        
+        this.telnetClient.connect({ port: 5410, host: '127.0.0.1', keepAlive: true }, () => {
+            console.log('[KSP] Telnet socket connected!')
+            this.telnetClient?.write('1\r\n')
+        })
 
-    var client = new net.Socket();
-    client.connect({ port: 5410, host: '127.0.0.1', keepAlive: true }, () => {
-        console.log('[Telnet] Socket connected!');
-        client.write('1\r\n');
-    });
+        this.telnetClient.on('connect', () => {
+            this.toggleKeepAlive(true)
+        })
 
-    let apolloCPU = 0
-    let keepAliveInterval: NodeJS.Timeout | null = null
-    const toggleKeepAlive = (enable: boolean) => {
-        if (enable && !keepAliveInterval) keepAliveInterval = setInterval(() => client.write('a'), 2000) // Keep connection alive
-        if (!enable && keepAliveInterval) {
-            clearInterval(keepAliveInterval)
-            keepAliveInterval = null
+        this.telnetClient.on('data', (data) => {
+            if (data.includes('<NONE>') && !this.apolloCPU) {
+                this.apolloCPU = 0
+                console.log("[KSP] kOS CPU Disconnected")
+            }
+            if (data.includes('Apollo()')) {
+                this.toggleKeepAlive(false) // Prevent keepalive from meddling in CPU selection
+                this.apolloCPU = 1
+            }
+            if (this.apolloCPU && data.includes('>')) {
+                console.log(`[KSP] Selecting CPU [${this.apolloCPU}]`)
+                this.telnetClient?.write(`${this.apolloCPU}\r`)
+                this.toggleKeepAlive(true)
+            }
+        })
+
+        this.telnetClient.on('close', async (hadError: boolean) => {
+            if (!hadError && this.running) await this.handleSocketError('closed')
+        })
+
+        this.telnetClient.on('error', async () => {
+            if (this.running) await this.handleSocketError('connection failed')
+        })
+    }
+
+    private toggleKeepAlive(enable: boolean): void {
+        if (enable && !this.keepAliveInterval) {
+            this.keepAliveInterval = setInterval(() => this.telnetClient?.write('a'), 2000)
+        }
+        if (!enable && this.keepAliveInterval) {
+            clearInterval(this.keepAliveInterval)
+            this.keepAliveInterval = null
         }
     }
-    client.on('connect', () => {
-        toggleKeepAlive(true)
-    })
-    client.on('data', function(data) {
-        if (data.includes('<NONE>') && !apolloCPU) {
-            apolloCPU = 0
-            console.log("[kOS] CPU Disconnected")
-        }
-        if (data.includes('Apollo()')) {
-            toggleKeepAlive(false) // Prevent keepalive from meddling in CPU selection
-            apolloCPU = 1
-        }
-        if (apolloCPU && data.includes('>')) {
-            console.log(`[kOS] Selecting CPU [${apolloCPU}]`)
-            client.write(`${apolloCPU}\r`)
-            toggleKeepAlive(true)
-        }
-    });
 
-    const handleSocketError = async (error: string) => {
-        console.log(`[Telnet] Socket ${error}! Reconnecting...`)
-        toggleKeepAlive(false)
-        client.destroy()
+    private async handleSocketError(error: string): Promise<void> {
+        if (!this.running) return
+        console.log(`[KSP] Telnet socket ${error}! Reconnecting...`)
+        this.toggleKeepAlive(false)
+        this.telnetClient?.destroy()
         await new Promise(r => setTimeout(r, 2000))
-        await getKSPKeyboardHandler()
+        if (this.running) {
+            this.setupTelnetClient()
+        }
     }
-
-    client.on('close', async (hadError: boolean) => {
-        if (!hadError) await handleSocketError('closed')
-    })
-
-    client.on('error', async () => await handleSocketError('connection failed'))
-
-    keyboardHandler = (data: string) => {
-        client.write(`${data}`)
-    }
-
-    return (data: string) => keyboardHandler(data)
 }

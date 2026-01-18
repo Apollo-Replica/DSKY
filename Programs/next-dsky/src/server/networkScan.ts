@@ -1,6 +1,12 @@
 import * as net from 'net'
 import * as os from 'os'
-import { DiscoveredAPI } from './configState'
+
+export interface DiscoveredAPI {
+    ip: string
+    port: number
+    url: string
+    name?: string
+}
 
 const SCAN_TIMEOUT = 200 // ms
 const DSKY_PORTS = [3001, 3000] // Default DSKY API ports

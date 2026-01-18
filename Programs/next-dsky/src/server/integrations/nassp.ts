@@ -1,35 +1,66 @@
 import * as dgram from 'node:dgram'
+import { AgcIntegration } from './AgcIntegration'
 
-let dskyServer: dgram.Socket | null = null
-let handleAGCUpdate = (_data: any) => {}
+export class NASSPIntegration extends AgcIntegration {
+    readonly name = 'NASSP'
+    readonly id = 'nassp'
+    
+    private dskyServer: dgram.Socket | null = null
+    private nasspAddress: string | undefined
+    private nasspPort: number | undefined
+    private lastDSKYMessage: string | undefined
 
-let nasspAddress: string | undefined, nasspPort: number | undefined;
-
-export const watchStateNASSP = (callback: (state: any) => void) => {
-    // Create new socket for this session
-    dskyServer = dgram.createSocket('udp4')
-    handleAGCUpdate = callback
-    let lastDSKYMessage: string | undefined
-
-    dskyServer.on('listening', function() {
-        var address = dskyServer!.address();
-        console.log('DSKY Server listening on ' + address.address + ':' + address.port);
-    });
-
-    dskyServer.on('message', function(message, rinfo) {
+    async handleKey(key: string): Promise<void> {
         try {
-            nasspAddress = rinfo.address
-            nasspPort = rinfo.port
+            if (this.nasspAddress && this.nasspPort && this.dskyServer) {
+                this.dskyServer.send(key, this.nasspPort, this.nasspAddress)
+            }
+        } catch (error) {
+            console.error('[NASSP] Error sending keypress:', error)
+        }
+    }
+
+    protected async onStart(_options: Record<string, any>): Promise<void> {
+        this.dskyServer = dgram.createSocket('udp4')
+        this.lastDSKYMessage = undefined
+
+        this.dskyServer.on('listening', () => {
+            const address = this.dskyServer!.address()
+            console.log(`[NASSP] Server listening on ${address.address}:${address.port}`)
+        })
+
+        this.dskyServer.on('message', (message, rinfo) => {
+            this.handleMessage(message, rinfo)
+        })
+
+        this.dskyServer.bind(3002, '127.0.0.1')
+    }
+
+    protected onStop(): void {
+        console.log('[NASSP] Closing UDP server')
+        if (this.dskyServer) {
+            this.dskyServer.close()
+            this.dskyServer = null
+        }
+        this.nasspAddress = undefined
+        this.nasspPort = undefined
+    }
+
+    private handleMessage(message: Buffer, rinfo: dgram.RemoteInfo): void {
+        try {
+            this.nasspAddress = rinfo.address
+            this.nasspPort = rinfo.port
             const parsedJSON = JSON.parse(message.toString())
             const messageClean = JSON.stringify(parsedJSON)
-            if (messageClean != lastDSKYMessage) {
-                lastDSKYMessage = messageClean
+            
+            if (messageClean !== this.lastDSKYMessage) {
+                this.lastDSKYMessage = messageClean
                 const { compLight, prog, verb, noun, flashing, r1, r2, r3, alarms, powered, anun, numerics, integral } = parsedJSON
-                const [alarmsPowered, ELPowered] = powered.split(' ').map((val: string) => val != '0')
-                const alarmValues = alarms.split(' ').map((val: string) => val != '0' && alarmsPowered)
+                const [alarmsPowered, ELPowered] = powered.split(' ').map((val: string) => val !== '0')
+                const alarmValues = alarms.split(' ').map((val: string) => val !== '0' && alarmsPowered)
 
                 const state = {
-                    IlluminateCompLight: compLight == '1',
+                    IlluminateCompLight: compLight === '1',
                     IlluminateUplinkActy: alarmValues[0],
                     IlluminateNoAtt: alarmValues[1],
                     IlluminateStby: alarmValues[2],
@@ -46,10 +77,10 @@ export const watchStateNASSP = (callback: (state: any) => void) => {
                     IlluminatePrioDisp: alarmValues[13],
                     ProgramD1: prog[0].replace(' ', ''),
                     ProgramD2: prog[1].replace(' ', ''),
-                    VerbD1: flashing == 1 ? '' : verb[0].replace(' ', ''),
-                    VerbD2: flashing == 1 ? '' : verb[1].replace(' ', ''),
-                    NounD1: flashing == 1 ? '' : noun[0].replace(' ', ''),
-                    NounD2: flashing == 1 ? '' : noun[1].replace(' ', ''),
+                    VerbD1: flashing === 1 ? '' : verb[0].replace(' ', ''),
+                    VerbD2: flashing === 1 ? '' : verb[1].replace(' ', ''),
+                    NounD1: flashing === 1 ? '' : noun[0].replace(' ', ''),
+                    NounD2: flashing === 1 ? '' : noun[1].replace(' ', ''),
                     Register1Sign: r1[0].replace(' ', ''),
                     Register1D1: r1[1].replace(' ', ''),
                     Register1D2: r1[2].replace(' ', ''),
@@ -73,35 +104,10 @@ export const watchStateNASSP = (callback: (state: any) => void) => {
                     DisplayBrightness: Math.max(Math.floor(parseFloat(numerics) * 127), 1),
                     KeyboardBrightness: Math.max(Math.floor(parseFloat(integral) * 127), 1)
                 }
-                handleAGCUpdate(state)
+                this.emitState(state)
             }
         } catch {
-            console.log("Error parsing NASSP's message")
-        }
-    });
-
-    dskyServer.bind(3002, '127.0.0.1');
-    
-    // Return cleanup function
-    return () => {
-        console.log('[NASSP] Closing UDP server')
-        if (dskyServer) {
-            dskyServer.close()
-            dskyServer = null
-        }
-        nasspAddress = undefined
-        nasspPort = undefined
-    }
-};
-
-export const getNASSPKeyboardHandler = () => {
-    return async (data: string) => {
-        try {
-            if (nasspAddress && nasspPort && dskyServer) {
-                dskyServer.send(data, nasspPort, nasspAddress)
-            }
-        } catch (error) {
-            console.error('Error sending keypress: ', error);
+            console.log("[NASSP] Error parsing message")
         }
     }
-};
+}

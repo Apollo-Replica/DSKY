@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { IncomingMessage } from 'http'
 import { V35_TEST } from '../utils/dskyStates'
-import { getConfigState, setConfigBroadcaster, ConfigState } from './configState'
+import { ConfigState } from './integrations'
 
 let wss: WebSocketServer | null = null
 let listener: (data: Buffer) => Promise<void> = async (_data) => {}
@@ -13,6 +13,7 @@ export const setConfigListener = (newListener: (type: string, data?: any) => voi
 }
 
 let state = V35_TEST
+let currentConfigState: ConfigState | null = null
 let clientsData = new Map<WebSocket, { country?: string, ip: string }>()
 
 // Function to get the country from an IP (simplified - no geoip for now)
@@ -32,7 +33,7 @@ const getClientIp = (req: IncomingMessage): string => {
     return req.socket.remoteAddress?.replace(/^.*:/, '') || 'unknown' // Extract IPv4 address
 }
 
-const getStateMessage = (connection: WebSocket, state: any): string => {
+const getStateMessage = (connection: WebSocket, dskyState: any): string => {
     // Get the IP address of the current connection
     const currentIp = clientsData.get(connection)?.ip
 
@@ -44,8 +45,8 @@ const getStateMessage = (connection: WebSocket, state: any): string => {
     }))
 
     return JSON.stringify({
-        ...state,
-        config: getConfigState(),
+        ...dskyState,
+        config: currentConfigState,
         clients: clientsArray
     })
 }
@@ -115,11 +116,6 @@ export const initWebSocket = (webSocketServer: WebSocketServer) => {
             console.error('[WS] Exception sending initial state:', e)
         }
     })
-
-    // Initialize config broadcaster
-    setConfigBroadcaster((_configState: ConfigState) => {
-        broadcastConfigState()
-    })
 }
 
 // Function to notify all WebSocket clients
@@ -143,8 +139,10 @@ export const getWebSocket = (): WebSocketServer | null => {
 }
 
 // Broadcast config state to all clients
-export const broadcastConfigState = () => {
+export const broadcastConfigState = (configState: ConfigState) => {
     if (!wss) return
+
+    currentConfigState = configState
 
     for (const connection of wss.clients) {
         if (connection.readyState === WebSocket.OPEN) {

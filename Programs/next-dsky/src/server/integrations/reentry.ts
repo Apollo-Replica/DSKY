@@ -1,11 +1,9 @@
-import * as fs from 'fs';
+import * as fs from 'fs'
 import * as dgram from 'node:dgram'
-import getAppDataPath from "appdata-path";
-import { createWatcher } from "../filesystem"
-import { OFF_TEST } from '../../utils/dskyStates';
-
-let inputServer = dgram.createSocket('udp4');
-let state: any = { ...OFF_TEST }
+import getAppDataPath from 'appdata-path'
+import { createWatcher } from '../filesystem'
+import { OFF_TEST } from '../../utils/dskyStates'
+import { AgcIntegration } from './AgcIntegration'
 
 const CMButtons: Record<string, number> = {
     'v': 1,
@@ -62,14 +60,63 @@ function normalizeBrightness(
     return Math.min(Math.max(targetMin, normalized), targetMax)
 }
 
-export const watchStateReentry = (callback: (state: any) => void) => {
-    const APOLLO_PATH = `${getAppDataPath()}\\..\\LocalLow\\Wilhelmsen Studios\\ReEntry\\Export\\Apollo`;
-    const AGC_PATH = `${APOLLO_PATH}\\outputAGC.json`;
-    const LGC_PATH = `${APOLLO_PATH}\\outputLGC.json`;
+export class ReentryIntegration extends AgcIntegration {
+    readonly name = 'Reentry'
+    readonly id = 'reentry'
+    
+    private inputServer = dgram.createSocket('udp4')
+    private state: any = { ...OFF_TEST }
+    private agcHandle: { cancel: () => void } | null = null
+    private lgcHandle: { cancel: () => void } | null = null
 
-    const handleStateUpdate = (path: string, condition: (state: any) => boolean, callback: (state: any) => void) => {
+    async handleKey(key: string): Promise<void> {
         try {
-            const newState = JSON.parse(fs.readFileSync(path).toString());
+            const IsInCM = !!this.state.IsInCM
+            const buttonMap = IsInCM ? CMButtons : LMButtons
+            const buttonToPress = buttonMap[key]
+            if (!buttonToPress) return
+            const dataPacket = {
+                TargetCraft: IsInCM ? 2 : 3,
+                MessageType: 1,
+                ID: buttonToPress,
+                toPos: 0
+            }
+            this.inputServer.send(JSON.stringify(dataPacket), 8051, '127.0.0.1')
+        } catch (error) {
+            console.error('[Reentry] Error sending button press:', error)
+        }
+    }
+
+    protected async onStart(_options: Record<string, any>): Promise<void> {
+        const APOLLO_PATH = `${getAppDataPath()}\\..\\LocalLow\\Wilhelmsen Studios\\ReEntry\\Export\\Apollo`
+        const AGC_PATH = `${APOLLO_PATH}\\outputAGC.json`
+        const LGC_PATH = `${APOLLO_PATH}\\outputLGC.json`
+
+        console.log(`[Reentry] Watching AGC: ${AGC_PATH}`)
+        console.log(`[Reentry] Watching LGC: ${LGC_PATH}`)
+
+        // Watch AGC state for changes
+        this.agcHandle = createWatcher(AGC_PATH, () => {
+            this.handleStateUpdate(AGC_PATH, (state) => state.IsInCM)
+        })
+
+        // Watch LGC state for changes
+        this.lgcHandle = createWatcher(LGC_PATH, () => {
+            this.handleStateUpdate(LGC_PATH, (state) => state.IsInLM)
+        })
+    }
+
+    protected onStop(): void {
+        console.log('[Reentry] Closing file watchers')
+        this.agcHandle?.cancel()
+        this.lgcHandle?.cancel()
+        this.agcHandle = null
+        this.lgcHandle = null
+    }
+
+    private handleStateUpdate(path: string, condition: (state: any) => boolean): void {
+        try {
+            const newState = JSON.parse(fs.readFileSync(path).toString())
             if (newState.HideVerb) {
                 newState.VerbD1 = ''
                 newState.VerbD2 = ''
@@ -79,7 +126,7 @@ export const watchStateReentry = (callback: (state: any) => void) => {
                 newState.NounD2 = ''
             }
 
-            // Reentry gives brighnesses in weird ranges, normalize them to 1-127 and save them in the standardized key names
+            // Reentry gives brightnesses in weird ranges, normalize them to 1-127
             if (newState.IsInCM != undefined) {
                 newState.DisplayBrightness = normalizeBrightness(newState.BrightnessNumerics, 0.2, 1.14117646)
                 newState.StatusBrightness = normalizeBrightness(newState.BrightnessNumerics, 0.2, 1.14117646)
@@ -91,53 +138,11 @@ export const watchStateReentry = (callback: (state: any) => void) => {
             }
 
             if (condition(newState)) {
-                state = newState
-                callback(newState);
+                this.state = newState
+                this.emitState(newState)
             }
         } catch (error: any) {
-            console.error(`Error while parsing ${path}: ${error.message}`);
-        }
-    };
-
-    // Watch AGC state for changes
-    const handleAGCUpdate = () => {
-        handleStateUpdate(AGC_PATH, (state) => state.IsInCM, callback);
-    };
-
-    // Watch LGC state for changes
-    const handleLGCUpdate = () => {
-        handleStateUpdate(LGC_PATH, (state) => state.IsInLM, callback);
-    };
-
-    // Call the Watchers to check AGC + LGC (non-blocking)
-    const agcHandle = createWatcher(AGC_PATH, handleAGCUpdate);
-    const lgcHandle = createWatcher(LGC_PATH, handleLGCUpdate);
-    
-    // Return cleanup function
-    return () => {
-        console.log('[Reentry] Closing file watchers')
-        // Cancel stops the retry loop and closes any created watcher
-        agcHandle.cancel()
-        lgcHandle.cancel()
-    }
-};
-
-export const getReentryKeyboardHandler = () => {
-    return async (data: string) => {
-        try {
-            const IsInCM = !!state.IsInCM
-            const buttonMap = IsInCM ? CMButtons : LMButtons
-            const buttonToPress = buttonMap[data]
-            if (!buttonToPress) return
-            const dataPacket = {
-                TargetCraft: IsInCM ? 2 : 3,
-                MessageType: 1,
-                ID: buttonToPress,
-                toPos: 0
-            }
-            inputServer.send(JSON.stringify(dataPacket), 8051, '127.0.0.1')
-        } catch (error) {
-            console.error('Error sending button press: ', error);
+            console.error(`[Reentry] Error parsing ${path}: ${error.message}`)
         }
     }
-};
+}

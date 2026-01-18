@@ -1,170 +1,125 @@
 import { WebSocketServer } from 'ws'
 import { exec } from 'child_process'
-import { getReentryKeyboardHandler, watchStateReentry } from './integrations/reentry'
-import { getNASSPKeyboardHandler, watchStateNASSP } from './integrations/nassp'
-import { getKSPKeyboardHandler, watchStateKSP } from './integrations/ksp'
-import { getYaAGCKeyboardHandler, watchStateYaAGC } from './integrations/yaAGC'
-import { getBridgeKeyboardHandler, watchStateBridge } from './integrations/bridge'
-import { watchStateRandom } from './integrations/random'
+import { AgcIntegration, getIntegration, ConfigIntegration, ConfigResult } from './integrations'
 import { createSerial, createSerialFromConfig, setSerialListener, updateSerialState, closeSerial } from './serial'
-import { initWebSocket, setWebSocketListener, updateWebSocketState, setConfigListener } from './socket'
-import {
-    initConfig,
-    getConfigState,
-    resetToConfig,
-    configNext,
-    configPrev,
-    configSelect,
-    configBack,
-    configDirectSelect,
-    updateConfig,
-    updateDiscoveredApis,
-    refreshSerialPorts
-} from './configState'
+import { initWebSocket, setWebSocketListener, updateWebSocketState, setConfigListener, broadcastConfigState } from './socket'
 import { scanForDSKYApis } from './networkScan'
 
-let activeWatcher: any = null
+let activeIntegration: AgcIntegration | null = null
+let configIntegration: ConfigIntegration | null = null
 let pendingUpdate: any = null
-let keyboardHandler: ((key: string) => any) | null = null
 let programOptions: any = {}
 
-const watchState = async (inputSource: string, callback: (state: any) => void, options: any = {}) => {
-    switch (inputSource) {
-        case "reentry":
-            return watchStateReentry(callback)
-        case "nassp":
-            return watchStateNASSP(callback)
-        case "ksp":
-            return watchStateKSP(callback)
-        case "bridge":
-            return await watchStateBridge(callback, options)
-        case "yaagc":
-            return watchStateYaAGC(callback, options)
-        case "random":
-        default:
-            return await watchStateRandom(callback)
+const stopIntegration = () => {
+    if (activeIntegration) {
+        console.log('[Server] Stopping active integration')
+        activeIntegration.stop()
     }
+    activeIntegration = null
 }
 
-const getKeyboardHandler = async (inputSource: string) => {
-    switch (inputSource) {
-        case "reentry":
-            return getReentryKeyboardHandler()
-        case "nassp":
-            return getNASSPKeyboardHandler()
-        case "ksp":
-            return await getKSPKeyboardHandler()
-        case "bridge":
-            return await getBridgeKeyboardHandler()
-        case "yaagc":
-            return await getYaAGCKeyboardHandler()
-        default:
-            return async (_data: string) => {}
-    }
-}
-
-const stopWatcher = () => {
-    if (activeWatcher && typeof activeWatcher === 'function') {
-        console.log('[Config] Stopping active watcher')
-        activeWatcher() // Call the stop function
-    }
-    activeWatcher = null
-    keyboardHandler = null
-}
-
-// Perform full reset - stop watcher, close serial, reset to config
+// Perform full reset - stop integration, close serial, switch to config
 const performReset = () => {
-    console.log('[Config] Performing full reset')
-    stopWatcher()
+    console.log('[Server] Performing full reset')
+    stopIntegration()
     closeSerial()
-    resetToConfig()
+    startConfigMode()
 }
 
-const startWatcher = async (options: any) => {
-    const config = getConfigState()
-    const inputSource = config.inputSource || 'random'
+const startConfigMode = async () => {
+    // Create and start config integration
+    configIntegration = new ConfigIntegration()
+    
+    // Set up config state broadcasting
+    configIntegration.setConfigCallback((configState) => {
+        broadcastConfigState(configState)
+    })
 
-    console.log(`[Config] Starting watcher for: ${inputSource}`)
+    // Set up completion handler
+    configIntegration.setOnComplete(async (result: ConfigResult) => {
+        console.log(`[Server] Config complete, starting: ${result.inputSource}`)
+        await startSelectedIntegration(result)
+    })
+
+    // Set up network scan request handler
+    configIntegration.setOnScanRequest(() => {
+        triggerNetworkScan()
+    })
+
+    // Start config as the active integration
+    activeIntegration = configIntegration
+    await configIntegration.start((state) => {
+        pendingUpdate = state
+    })
+
+    // Broadcast initial config state
+    broadcastConfigState(configIntegration.getConfigState())
+}
+
+const startSelectedIntegration = async (config: ConfigResult) => {
+    // Stop config integration
+    stopIntegration()
+    configIntegration = null
 
     // Create serial connection if configured
     if (config.serialPort) {
-        console.log(`[Config] Creating serial connection to: ${config.serialPort}`)
-        await createSerialFromConfig(config.serialPort, options.baud || '9600')
+        console.log(`[Server] Creating serial connection to: ${config.serialPort}`)
+        await createSerialFromConfig(config.serialPort, programOptions.baud || '9600')
     }
 
-    // Build options for the watcher
-    const watcherOptions = { ...options }
+    // Build options for the integration
+    const integrationOptions: Record<string, any> = { ...programOptions }
     if (config.yaagcVersion) {
-        watcherOptions.yaagc = config.yaagcVersion
+        integrationOptions.yaagc = config.yaagcVersion
     }
     if (config.bridgeUrl) {
-        watcherOptions.bridgeUrl = config.bridgeUrl
+        integrationOptions.bridgeUrl = config.bridgeUrl
     }
 
-    activeWatcher = await watchState(inputSource, (state) => {
+    // Get and start the selected integration
+    activeIntegration = getIntegration(config.inputSource)
+    await activeIntegration.start((state) => {
         pendingUpdate = state
-    }, watcherOptions)
+    }, integrationOptions)
 
-    keyboardHandler = await getKeyboardHandler(inputSource)
+    // Broadcast that config is now ready (no longer in config mode)
+    broadcastConfigState({
+        ready: true,
+        step: 'confirm',
+        serialPort: config.serialPort,
+        inputSource: config.inputSource,
+        bridgeUrl: config.bridgeUrl,
+        yaagcVersion: config.yaagcVersion,
+        availablePorts: [],
+        discoveredApis: [],
+        scanning: false,
+        selectedIndex: 0,
+        options: []
+    })
 
-    if (options.callback) {
-        exec(options.callback)
-    }
-}
-
-// Config keyboard handler
-const handleConfigKey = async (key: string) => {
-    const config = getConfigState()
-
-    switch (key) {
-        case '+':
-        case 'v':
-            configNext()
-            break
-        case '-':
-        case 'n':
-            configPrev()
-            break
-        case 'e':
-        case 'p':
-            const result = await configSelect()
-            if (result.done && result.startWatcher) {
-                // Start the actual watcher with selected config
-                await startWatcher(programOptions)
-            }
-            // Check if we need to trigger a network scan
-            if (config.step === 'source' && config.inputSource === 'bridge') {
-                triggerNetworkScan()
-            }
-            break
-        case 'c':
-            configBack()
-            break
-        case 'o':
-            // PRO release - ignore in config mode
-            break
-        default:
-            if (/[0-9]/.test(key)) {
-                configDirectSelect(parseInt(key))
-            }
+    if (programOptions.callback) {
+        exec(programOptions.callback)
     }
 }
 
 const triggerNetworkScan = async () => {
-    updateConfig({ scanning: true })
-    console.log('[Config] Starting network scan...')
+    console.log('[Server] Starting network scan...')
 
     try {
         const apis = await scanForDSKYApis((current, total) => {
             if (current % 50 === 0) {
-                console.log(`[Config] Scanning: ${current}/${total}`)
+                console.log(`[Server] Scanning: ${current}/${total}`)
             }
         })
-        console.log(`[Config] Found ${apis.length} DSKY APIs`)
-        updateDiscoveredApis(apis)
+        console.log(`[Server] Found ${apis.length} DSKY APIs`)
+        if (configIntegration) {
+            configIntegration.updateDiscoveredApis(apis)
+        }
     } catch (error) {
-        console.error('[Config] Network scan failed:', error)
-        updateDiscoveredApis([])
+        console.error('[Server] Network scan failed:', error)
+        if (configIntegration) {
+            configIntegration.updateDiscoveredApis([])
+        }
     }
 }
 
@@ -187,65 +142,72 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     }
     setInterval(doUpdate, 70)
 
-    // Handle config messages from WebSocket
+    // Handle config messages from WebSocket (for UI interactions)
     setConfigListener(async (type: string, data?: any) => {
-        console.log(`[Config] Received: ${type}`)
+        console.log(`[Server] Config message: ${type}`)
+        
+        // Handle reset specially - it can happen anytime
+        if (type === 'config:reset') {
+            if (process.env.DISABLE_RESET === '1') {
+                console.log('[Server] Reset requested but DISABLE_RESET is enabled')
+                return
+            }
+            performReset()
+            return
+        }
+
+        // Other config messages only apply when in config mode
+        if (!configIntegration) {
+            console.log('[Server] Ignoring config message - not in config mode')
+            return
+        }
+
         switch (type) {
             case 'config:refresh-ports':
-                await refreshSerialPorts()
+                await configIntegration.refreshSerialPorts()
                 break
             case 'config:scan-apis':
                 await triggerNetworkScan()
                 break
             case 'config:next':
-                configNext()
+                await configIntegration.handleKey('+')
                 break
             case 'config:prev':
-                configPrev()
+                await configIntegration.handleKey('-')
                 break
             case 'config:select':
-                const result = await configSelect()
-                if (result.done && result.startWatcher) {
-                    await startWatcher(programOptions)
-                }
-                const config = getConfigState()
-                if (config.scanning) {
-                    triggerNetworkScan()
-                }
+                await configIntegration.handleKey('e')
                 break
             case 'config:back':
-                configBack()
+                await configIntegration.handleKey('c')
                 break
             case 'config:key':
                 if (data?.key) {
-                    await handleConfigKey(data.key)
+                    await configIntegration.handleKey(data.key)
                 }
                 break
-            case 'config:reset':
-                if (process.env.DISABLE_RESET === '1') {
-                    console.log('[Config] Reset requested but DISABLE_RESET is enabled')
-                    return
-                }
-                performReset()
         }
     })
 
     // Check if mode was specified via CLI (skip config)
     if (options.mode) {
-        console.log(`[Config] Mode specified via CLI: ${options.mode}`)
-        updateConfig({
-            ready: true,
+        console.log(`[Server] Mode specified via CLI: ${options.mode}`)
+        await startSelectedIntegration({
             inputSource: options.mode,
             serialPort: options.serial || null
         })
-        await startWatcher(options)
     } else {
         // Initialize config mode
-        console.log('[Config] Starting in config mode')
-        await initConfig()
+        console.log('[Server] Starting in config mode')
+        await startConfigMode()
     }
 
-    // Set up keyboard handlers
+    // Set up keyboard handlers for Serial and WebSocket
+    setupKeyboardHandlers(options)
+}
+
+const setupKeyboardHandlers = (options: any) => {
+    // Serial keyboard handler
     let plusCount = 0
     let minusCount = 0
     let shutdownTimeout: ReturnType<typeof setTimeout> | undefined
@@ -261,37 +223,35 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
         if (shutdownTimeout) clearTimeout(shutdownTimeout)
         if (resetTimeout) clearTimeout(resetTimeout)
 
-        const config = getConfigState()
+        const isInConfig = configIntegration !== null
 
         // Three '-' presses & holding PRO for 3 seconds runs the shutdown handler (if any)
-        if (key == 'p' && minusCount >= 3 && options.shutdown) {
+        if (key === 'p' && minusCount >= 3 && options.shutdown) {
             shutdownTimeout = setTimeout(() => exec(options.shutdown), 3000)
             return
         }
 
         // Three '+' presses & holding PRO for 3 seconds resets to config mode
-        if (key == 'p' && plusCount >= 3 && config.ready && process.env.DISABLE_RESET !== '1') {
+        if (key === 'p' && plusCount >= 3 && !isInConfig && process.env.DISABLE_RESET !== '1') {
             resetTimeout = setTimeout(() => {
-                console.log('[Config] PRO+++ detected via Serial')
+                console.log('[Server] PRO+++ detected via Serial')
                 performReset()
             }, 3000)
             return
         }
 
-        if (key == '+') plusCount++
+        if (key === '+') plusCount++
         else plusCount = 0
-        if (key == '-') minusCount++
+        if (key === '-') minusCount++
         else minusCount = 0
 
-        // Route to appropriate handler based on config state
-        if (!config.ready) {
-            await handleConfigKey(key)
-        } else if (keyboardHandler) {
-            await keyboardHandler(key)
+        // Route to active integration
+        if (activeIntegration) {
+            await activeIntegration.handleKey(key)
         }
     })
 
-    // Separate counters for WebSocket (web interface)
+    // WebSocket keyboard handler
     let wsPlusCount = 0
     let wsMinusCount = 0
     let wsShutdownTimeout: ReturnType<typeof setTimeout> | undefined
@@ -301,39 +261,37 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
         const key = data.toString().toLowerCase().substring(0, 1)
         console.log(`[WS] KeyPress: ${key}`)
 
-        // 'o' is PRO key release - don't process it as a regular key
-        // and don't let it cancel the reset/shutdown timeouts
+        // 'o' is PRO key release
         if (key === 'o') return
 
         if (wsShutdownTimeout) clearTimeout(wsShutdownTimeout)
         if (wsResetTimeout) clearTimeout(wsResetTimeout)
 
-        const config = getConfigState()
+        const isInConfig = configIntegration !== null
 
-        // Three '-' presses & holding PRO for 3 seconds runs the shutdown handler (if any)
-        if (key == 'p' && wsMinusCount >= 3 && options.shutdown) {
+        // Three '-' presses & holding PRO for 3 seconds runs the shutdown handler
+        if (key === 'p' && wsMinusCount >= 3 && options.shutdown) {
             wsShutdownTimeout = setTimeout(() => exec(options.shutdown), 3000)
             return
         }
 
         // Three '+' presses & holding PRO for 3 seconds resets to config mode
-        if (key == 'p' && wsPlusCount >= 3 && config.ready && process.env.DISABLE_RESET !== '1') {
+        if (key === 'p' && wsPlusCount >= 3 && !isInConfig && process.env.DISABLE_RESET !== '1') {
             wsResetTimeout = setTimeout(() => {
-                console.log('[Config] PRO+++ detected via WebSocket')
+                console.log('[Server] PRO+++ detected via WebSocket')
                 performReset()
             }, 3000)
             return
         }
 
-        if (key == '+') wsPlusCount++
+        if (key === '+') wsPlusCount++
         else wsPlusCount = 0
-        if (key == '-') wsMinusCount++
+        if (key === '-') wsMinusCount++
         else wsMinusCount = 0
 
-        if (!config.ready) {
-            await handleConfigKey(key)
-        } else if (keyboardHandler) {
-            await keyboardHandler(key)
+        // Route to active integration
+        if (activeIntegration) {
+            await activeIntegration.handleKey(key)
         }
     })
 }

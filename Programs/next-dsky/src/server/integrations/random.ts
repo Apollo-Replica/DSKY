@@ -1,3 +1,5 @@
+import { AgcIntegration } from './AgcIntegration'
+
 const getRandomCharFromArray = <T>(array: T[]): T => {
     const randomIndex = Math.floor(Math.random() * array.length);
     return array[randomIndex];
@@ -52,13 +54,27 @@ const getRandomState = () => {
     }
 }
 
-export const watchStateRandom = (callback: (state: any) => void) => {
-    const intervalId = setInterval(() => {
-        callback(getRandomState())
-    }, 1000)
+export class RandomIntegration extends AgcIntegration {
+    readonly name = 'Random'
+    readonly id = 'random'
     
-    // Return a stop function
-    return () => {
-        clearInterval(intervalId)
+    private intervalId: ReturnType<typeof setInterval> | null = null
+
+    async handleKey(_key: string): Promise<void> {
+        // Random integration doesn't handle keyboard input
+    }
+
+    protected async onStart(_options: Record<string, any>): Promise<void> {
+        console.log('[Random] Starting random state generator')
+        this.intervalId = setInterval(() => {
+            this.emitState(getRandomState())
+        }, 1000)
+    }
+
+    protected onStop(): void {
+        if (this.intervalId) {
+            clearInterval(this.intervalId)
+            this.intervalId = null
+        }
     }
 }
