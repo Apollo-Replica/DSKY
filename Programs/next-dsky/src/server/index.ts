@@ -4,7 +4,6 @@ import { getReentryKeyboardHandler, watchStateReentry } from './integrations/ree
 import { getNASSPKeyboardHandler, watchStateNASSP } from './integrations/nassp'
 import { getKSPKeyboardHandler, watchStateKSP } from './integrations/ksp'
 import { getYaAGCKeyboardHandler, watchStateYaAGC } from './integrations/yaAGC'
-import { getHAKeyboardHandler, watchStateHA } from './integrations/homeassistant'
 import { getBridgeKeyboardHandler, watchStateBridge } from './integrations/bridge'
 import { watchStateRandom } from './integrations/random'
 import { createSerial, createSerialFromConfig, setSerialListener, updateSerialState, closeSerial } from './serial'
@@ -41,8 +40,6 @@ const watchState = async (inputSource: string, callback: (state: any) => void, o
             return await watchStateBridge(callback, options)
         case "yaagc":
             return watchStateYaAGC(callback, options)
-        case "homeassistant":
-            return watchStateHA(callback)
         case "random":
         default:
             return await watchStateRandom(callback)
@@ -61,8 +58,6 @@ const getKeyboardHandler = async (inputSource: string) => {
             return await getBridgeKeyboardHandler()
         case "yaagc":
             return await getYaAGCKeyboardHandler()
-        case "homeassistant":
-            return await getHAKeyboardHandler()
         default:
             return async (_data: string) => {}
     }

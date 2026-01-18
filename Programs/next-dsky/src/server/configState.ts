@@ -28,8 +28,7 @@ export const INPUT_SOURCES = [
     {name: 'Bridge to another DSKY API', value: 'bridge'},
     {name: 'yaAGC', value: 'yaagc'},
     {name: 'KSP', value: 'ksp'},
-    {name: 'Random Values', value: 'random'},
-    {name: 'HomeAssistant (WIP)', value: 'homeassistant'}
+    {name: 'Random Values', value: 'random'}
 ]
 
 export const YAAGC_VERSIONS = [
