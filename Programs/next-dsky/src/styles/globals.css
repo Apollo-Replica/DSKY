@@ -1,0 +1,109 @@
+@import url('digit.css');
+@import url('sign.css');
+@import url('programverbnoun.css');
+@import url('register1.css');
+@import url('register2.css');
+@import url('register3.css');
+@import url('alarms.css');
+@import url('clients.css');
+@import url('keyboard.css');
+@import "tailwindcss";
+
+:root{
+  --scale: 1.05;
+  --margin-left: -20px;
+  --margin-top: -4.5vh;
+}
+
+.display-iphone12{
+  --scale: 0.83;
+  --margin-left: 0;
+  --margin-top: 10vh;
+}
+.display-iphone13{
+  --scale: 0.83;
+  --margin-left: 0;
+  --margin-top: 10vh;
+}
+
+.oled-yes{
+  background-color: #000000;
+}
+.oled-no{
+  background-color: #3f3b30ff;
+}
+
+body {
+  overflow-y: hidden;
+  color: white;
+  /* background: url('/noise.jpg'); */
+  background-color: #000000;
+  background-size: auto 15%;
+  background-position: center top;
+}
+
+.ELDisplay{
+  position: absolute;
+  width: calc(52.8vh * var(--scale));
+  height:calc(100vh *  var(--scale));
+  margin-top: var(--margin-top);
+  margin-left: var(--margin-left);
+}
+
+.Alarms{
+  display:none;
+  position: absolute;
+  width: calc(52.8vh * var(--scale));
+  height:calc(100vh *  var(--scale));
+  margin-right:calc(60vh * var(--scale)) !important;
+}
+
+/* Display Alarms if aspect ratio bigger than 4:3 */
+@media (min-aspect-ratio: 4/3) {
+  :root{
+    --margin-left: -20px;
+    --margin-top: -3vh;
+  }
+  .display-iphone12{
+    --scale: 1.05;
+    --margin-top: -3vh;
+  }
+  .display-iphone13{
+    --scale: 1.05;
+    --margin-top: -3vh;
+  }
+
+  .ELDisplay {
+    margin-left: calc(60vh * var(--scale)) !important;
+  }
+  .Alarms{
+    display:block;
+  }
+}
+
+.mask{
+  z-index: 999;
+  width: calc(52.8vh * var(--scale));
+  height:calc(104vh * var(--scale));
+  position:absolute;
+  top:calc(-3.5vh * var(--scale));
+  left:0px;
+}
+
+.basic_segments {
+  z-index: 0;
+  width: calc(52.8vh * var(--scale));
+  height:calc(104vh * var(--scale));
+  position:absolute;
+  top:calc(-3.5vh * var(--scale));
+  left:0px;
+}
+.comp_acty {
+  width:calc(19.5vh * var(--scale));
+  height:calc(18.5vh * var(--scale));
+  background-color: #00ad81ff;
+  background-size: 100%;
+  position:absolute;
+  top:calc(5.7vh * var(--scale));
+  left:0px;
+}

@@ -1,0 +1,143 @@
+.alarms_mask{
+    z-index: 999;
+    width: 100%;
+    height:calc(104vh * var(--scale));
+    top:calc(-3.5vh * var(--scale));
+    position:absolute;
+    left:0px;
+}
+
+.alarms-bg{
+    position:absolute;
+    top:calc(5vh * var(--scale));
+    left:calc(2vh * var(--scale));
+    height:calc(86vh * var(--scale));
+    width:calc(50vh * var(--scale));
+    background-color: white;
+}
+.alarm-uplink {
+    z-index: 1;
+    position:absolute;
+    top:calc(7vh * var(--scale));
+    left:calc(0.4vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(151, 217, 255);
+}
+.alarm-noatt {
+    z-index: 1;
+    position:absolute;
+    top:calc(19vh * var(--scale));
+    left:calc(0.4vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(151, 217, 255);
+}
+.alarm-stby {
+    z-index: 1;
+    position:absolute;
+    top:calc(30vh * var(--scale));
+    left:calc(0.4vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(151, 217, 255);
+}
+.alarm-keyrel {
+    z-index: 1;
+    position:absolute;
+    top:calc(42vh * var(--scale));
+    left:calc(0.4vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(151, 217, 255);
+}
+.alarm-oprerr {
+    z-index: 1;
+    position:absolute;
+    top:calc(54vh * var(--scale));
+    left:calc(0.4vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(151, 217, 255);
+}
+.alarm-nodap {
+    z-index: 1;
+    position:absolute;
+    top:calc(66vh * var(--scale));
+    left:calc(0.4vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-priodisp {
+    z-index: 1;
+    position:absolute;
+    top:calc(78vh * var(--scale));
+    left:calc(0.4vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-temp {
+    z-index: 1;
+    position:absolute;
+    top:calc(7vh * var(--scale));
+    left:calc(25vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-gimballock {
+    z-index: 1;
+    position:absolute;
+    top:calc(19vh * var(--scale));
+    left:calc(25vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-prog {
+    z-index: 1;
+    position:absolute;
+    top:calc(30vh * var(--scale));
+    left:calc(25vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-restart {
+    z-index: 1;
+    position:absolute;
+    top:calc(42vh * var(--scale));
+    left:calc(25vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-tracker {
+    z-index: 1;
+    position:absolute;
+    top:calc(54vh * var(--scale));
+    left:calc(25vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-alt {
+    z-index: 1;
+    position:absolute;
+    top:calc(66vh * var(--scale));
+    left:calc(25vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
+.alarm-vel {
+    z-index: 1;
+    position:absolute;
+    top:calc(78vh * var(--scale));
+    left:calc(25vh * var(--scale));
+    height:calc(12vh * var(--scale));
+    width:calc(26vh * var(--scale));
+    background-color: rgb(253, 203, 21);
+}
