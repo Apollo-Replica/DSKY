@@ -5,7 +5,7 @@ import { DiscoveredAPI } from '../networkScan'
 
 export interface ConfigState {
     ready: boolean
-    step: 'serial' | 'source' | 'bridge' | 'yaagc' | 'confirm'
+    step: 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
     serialPort: string | null
     inputSource: string | null
     bridgeUrl?: string
@@ -16,6 +16,7 @@ export interface ConfigState {
     selectedIndex: number
     options: string[]
     resetDisabled?: boolean
+    textInput?: string
 }
 
 export const INPUT_SOURCES = [
@@ -65,7 +66,8 @@ export class ConfigIntegration extends AgcIntegration {
             discoveredApis: [],
             scanning: false,
             selectedIndex: 0,
-            options: []
+            options: [],
+            textInput: ''
         }
     }
 
@@ -112,6 +114,12 @@ export class ConfigIntegration extends AgcIntegration {
     }
 
     async handleKey(key: string): Promise<void> {
+        // Special handling for text input mode
+        if (this.configState.step === 'manualUrl') {
+            await this.handleTextInput(key)
+            return
+        }
+
         switch (key) {
             case '+':
             case 'v':
@@ -135,6 +143,65 @@ export class ConfigIntegration extends AgcIntegration {
                 if (/[0-9]/.test(key)) {
                     this.directSelect(parseInt(key))
                 }
+        }
+    }
+
+    private async handleTextInput(key: string): Promise<void> {
+        const currentInput = this.configState.textInput || ''
+
+        if (key === 'e' || key === 'p') {
+            // Enter/confirm - validate and proceed
+            const url = currentInput.trim()
+            if (this.isValidWebSocketUrl(url)) {
+                this.updateConfig({
+                    bridgeUrl: url,
+                    step: 'confirm',
+                    selectedIndex: 0,
+                    options: this.buildOptionsForStep('confirm', this.configState)
+                })
+            }
+            // If invalid, stay on manualUrl step (user can keep editing)
+            return
+        }
+
+        if (key === 'c') {
+            // Cancel/back - go back to bridge selection
+            this.updateConfig({
+                step: 'bridge',
+                selectedIndex: 0,
+                textInput: '',
+                options: this.buildOptionsForStep('bridge', this.configState)
+            })
+            return
+        }
+
+        // Handle backspace
+        if (key === 'backspace') {
+            this.updateConfig({ textInput: currentInput.slice(0, -1) })
+            return
+        }
+
+        // Handle printable characters (single chars that aren't control keys)
+        if (key.length === 1) {
+            this.updateConfig({ textInput: currentInput + key })
+        }
+    }
+
+    private isValidWebSocketUrl(url: string): boolean {
+        try {
+            const parsed = new URL(url)
+            return parsed.protocol === 'ws:' || parsed.protocol === 'wss:'
+        } catch {
+            return false
+        }
+    }
+
+    /**
+     * Handle text input from WebSocket (for web UI)
+     */
+    handleTextInputFromWeb(text: string): void {
+        if (this.configState.step === 'manualUrl') {
+            this.updateConfig({ textInput: text })
         }
     }
 
@@ -296,8 +363,13 @@ export class ConfigIntegration extends AgcIntegration {
                     return
                 }
                 if (option === 'Manual URL') {
-                    // For manual URL, default to public for now
-                    this.updateConfig({ bridgeUrl: 'wss://dsky.ortizma.com/ws' })
+                    // Navigate to manual URL input step
+                    this.updateConfig({
+                        step: 'manualUrl',
+                        textInput: 'wss://',
+                        options: []
+                    })
+                    return
                 } else if (option === 'Public (dsky.ortizma.com)') {
                     this.updateConfig({ bridgeUrl: 'wss://dsky.ortizma.com/ws' })
                 } else {
@@ -312,6 +384,20 @@ export class ConfigIntegration extends AgcIntegration {
                     selectedIndex: 0,
                     options: this.buildOptionsForStep('confirm', this.configState)
                 })
+                return
+            }
+
+            case 'manualUrl': {
+                // This is handled in handleTextInput, but in case select is called directly
+                const url = (this.configState.textInput || '').trim()
+                if (this.isValidWebSocketUrl(url)) {
+                    this.updateConfig({
+                        bridgeUrl: url,
+                        step: 'confirm',
+                        selectedIndex: 0,
+                        options: this.buildOptionsForStep('confirm', this.configState)
+                    })
+                }
                 return
             }
 
@@ -365,6 +451,14 @@ export class ConfigIntegration extends AgcIntegration {
                     step: 'source',
                     selectedIndex: 0,
                     options: this.buildOptionsForStep('source', this.configState)
+                })
+                break
+            case 'manualUrl':
+                this.updateConfig({
+                    step: 'bridge',
+                    selectedIndex: 0,
+                    textInput: '',
+                    options: this.buildOptionsForStep('bridge', this.configState)
                 })
                 break
             case 'confirm':

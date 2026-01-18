@@ -6,7 +6,7 @@ import ConfigDisplay from "./ConfigDisplay"
 
 interface ConfigState {
     ready: boolean
-    step: 'serial' | 'source' | 'bridge' | 'yaagc' | 'confirm'
+    step: 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
     serialPort: string | null
     inputSource: string | null
     bridgeUrl?: string
@@ -17,6 +17,7 @@ interface ConfigState {
     selectedIndex: number
     options: string[]
     resetDisabled?: boolean
+    textInput?: string
 }
 
 export default function ConfigPageContent() {
@@ -113,6 +114,17 @@ export default function ConfigPageContent() {
             if (!ws || ws.readyState !== WebSocket.OPEN) return
             if (event.repeat) return
 
+            // Skip keyboard handling when in text input mode
+            // The input field handles its own events
+            if (configState?.step === 'manualUrl') {
+                // Only handle Escape to go back
+                if (event.key === 'Escape') {
+                    sendConfigMessage('config:back')
+                    event.preventDefault()
+                }
+                return
+            }
+
             const key = event.key.toLowerCase()
 
             // Map keyboard to config actions
@@ -147,7 +159,7 @@ export default function ConfigPageContent() {
 
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [])
+    }, [configState?.step])
 
     const sendConfigMessage = (type: string, data?: any) => {
         const ws = wsRef.current
@@ -186,6 +198,10 @@ export default function ConfigPageContent() {
             initialReadyRef.current = false
             ws.send(JSON.stringify({ type: 'config:reset' }))
         }
+    }
+
+    const handleTextChange = (text: string) => {
+        sendConfigMessage('config:text-input', { text })
     }
 
     const handleBackToDsky = () => {
@@ -254,7 +270,7 @@ export default function ConfigPageContent() {
 
     return (
         <main className="flex min-h-screen flex-col items-center justify-center bg-black">
-            <ConfigDisplay config={configState} onAction={handleAction} />
+            <ConfigDisplay config={configState} onAction={handleAction} onTextChange={handleTextChange} />
         </main>
     )
 }

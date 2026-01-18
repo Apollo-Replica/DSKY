@@ -186,6 +186,11 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                     await configIntegration.handleKey(data.key)
                 }
                 break
+            case 'config:text-input':
+                if (data?.text !== undefined) {
+                    configIntegration.handleTextInputFromWeb(data.text)
+                }
+                break
         }
     })
 
