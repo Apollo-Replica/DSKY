@@ -57,7 +57,7 @@ export class ConfigIntegration extends AgcIntegration {
 
     private configState: ConfigState
     private configCallback: ((state: ConfigState) => void) | null = null
-    private onComplete: ((result: ConfigResult) => void) | null = null
+    private onComplete: ((result: ConfigResult) => Promise<void>) | null = null
     private onScanRequest: (() => void) | null = null
     private onNetworkInterfaceSelected: ((ip: string | null) => void) | null = null
     private presetSerialPort: string | null = null
@@ -98,8 +98,12 @@ export class ConfigIntegration extends AgcIntegration {
     /**
      * Set callback for when configuration is complete
      */
-    setOnComplete(callback: (result: ConfigResult) => void): void {
-        this.onComplete = callback
+    setOnComplete(callback: (result: ConfigResult) => void): void
+    setOnComplete(callback: (result: ConfigResult) => Promise<void>): void
+    setOnComplete(callback: (result: ConfigResult) => void | Promise<void>): void {
+        this.onComplete = async (result: ConfigResult) => {
+            await callback(result)
+        }
     }
 
     /**
@@ -579,12 +583,18 @@ export class ConfigIntegration extends AgcIntegration {
                 this.updateConfig({ ready: true })
                 
                 if (this.onComplete) {
-                    this.onComplete({
-                        inputSource: this.configState.inputSource!,
-                        serialPort: this.configState.serialPort,
-                        bridgeUrl: this.configState.bridgeUrl,
-                        yaagcVersion: this.configState.yaagcVersion
-                    })
+                    try {
+                        await this.onComplete({
+                            inputSource: this.configState.inputSource!,
+                            serialPort: this.configState.serialPort,
+                            bridgeUrl: this.configState.bridgeUrl,
+                            yaagcVersion: this.configState.yaagcVersion
+                        })
+                    } catch (err) {
+                        console.error('[Config] Failed to start selected integration:', err)
+                        // Keep config UI responsive rather than leaving it in a "ready" state.
+                        this.updateConfig({ ready: false })
+                    }
                 }
                 return
             }

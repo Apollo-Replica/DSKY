@@ -168,56 +168,95 @@ export const updateSerialState = (newState: any, force = false) => {
     const newPacket = stateToBinaryString(newState)
     if (force || stateToBinaryString(state) != newPacket) {
         state = newState
-        let serialPacket = binaryStringToBuffer(newPacket)
-        if (serial) serial.write(serialPacket)
+        const serialPacket = binaryStringToBuffer(newPacket)
+        if (serial) {
+            serial.write(serialPacket, (err) => {
+                if (err) {
+                    console.error('[Serial] Write failed:', err)
+                }
+            })
+        }
     }
+}
+
+const closeSerialInternal = async (port: SerialPort): Promise<void> => {
+    await new Promise<void>((resolve) => {
+        try {
+            // `close` is async; callback fires when fully closed.
+            port.close(() => resolve())
+        } catch {
+            resolve()
+        }
+    })
+}
+
+const attachSerialHandlers = (port: SerialPort) => {
+    port.on('data', async (data: Buffer) => {
+        await listener(data)
+    })
+
+    port.on('close', () => {
+        console.log('[Serial] Connection lost!')
+        if (serial === port) {
+            serial = null
+        }
+    })
+
+    port.on('error', (err) => {
+        console.error('[Serial] Port error:', err)
+    })
+}
+
+const openSerial = async (serialPath: string, baudRate = '9600'): Promise<SerialPort> => {
+    const baud = parseInt(baudRate)
+
+    // Reuse the existing port if it's already open on the same path.
+    if (serial && serial.path === serialPath) {
+        return serial
+    }
+
+    // Open the new port first (so we don't lose an existing working connection if open fails).
+    const next = new SerialPort({ path: serialPath, baudRate: baud, autoOpen: false })
+
+    await new Promise<void>((resolve, reject) => {
+        next.open((err) => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
+
+    attachSerialHandlers(next)
+
+    // Swap in the new port and close the previous one.
+    const previous = serial
+    serial = next
+
+    if (previous) {
+        console.log('[Serial] Closing previous connection')
+        await closeSerialInternal(previous)
+    }
+
+    updateSerialState(state, true)
+    return next
 }
 
 export const createSerial = async (serialPath: string | undefined, baudRate = '9600'): Promise<SerialPort | null> => {
     // If no serial source specified, skip serial setup
     if (!serialPath || serialPath === 'none') return null
-
-    serial = new SerialPort({ path: serialPath, baudRate: parseInt(baudRate) })
-
-    updateSerialState(state, true)
-
-    serial.on('data', async (data: Buffer) => {
-        await listener(data)
-    })
-
-    serial.on('close', async () => {
-        console.log("[Serial] Connection lost!")
-        serial = null
-    })
-
-    return serial
+    return await openSerial(serialPath, baudRate)
 }
 
 // Create serial connection from config (after web UI selection)
 export const createSerialFromConfig = async (serialPath: string, baudRate = '9600'): Promise<SerialPort | null> => {
     if (!serialPath || serialPath === 'none') return null
-
-    serial = new SerialPort({ path: serialPath, baudRate: parseInt(baudRate) })
-
-    updateSerialState(state, true)
-
-    serial.on('data', async (data: Buffer) => {
-        await listener(data)
-    })
-
-    serial.on('close', async () => {
-        console.log("[Serial] Connection lost!")
-        serial = null
-    })
-
-    return serial
+    return await openSerial(serialPath, baudRate)
 }
 
 // Close the serial connection
-export const closeSerial = () => {
-    if (serial) {
-        console.log('[Serial] Closing connection')
-        serial.close()
-        serial = null
-    }
+export const closeSerial = async (): Promise<void> => {
+    if (!serial) return
+    const port = serial
+    console.log('[Serial] Closing connection')
+    serial = null
+    await closeSerialInternal(port)
 }

@@ -22,7 +22,7 @@ const stopIntegration = () => {
 const performReset = async () => {
     console.log('[Server] Performing full reset')
     stopIntegration()
-    closeSerial()
+    await closeSerial()
 
     // Reopen serial if it was specified via CLI (needed for config navigation)
     if (programOptions.serial) {
