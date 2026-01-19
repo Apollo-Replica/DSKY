@@ -8,7 +8,7 @@ if [ "$1" = "cron" ]; then
     killall chromium-browser chromium &>/dev/null
     if [ $? -eq 0 ]; then
         export DISPLAY=:0
-        chromium-browser --start-fullscreen --incognito http://localhost:3000 &
+        chromium-browser --start-fullscreen --incognito http://localhost:3000 >/dev/null 2>&1 &
         sleep 5
         wmctrl -a chromium
     fi
@@ -29,7 +29,7 @@ else
             curl -fsS http://localhost:3000 >/dev/null 2>&1 && break
             sleep 1
         done
-        chromium-browser --start-fullscreen --incognito http://localhost:3000 &
+        chromium-browser --start-fullscreen --incognito http://localhost:3000 >/dev/null 2>&1 &
         sleep 5
         wait "$next_pid"
     done
