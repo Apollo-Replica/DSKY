@@ -1,0 +1,89 @@
+
+.segment_e {
+  position:absolute;
+  height:calc(1.5vh * var(--scale));
+  width:calc(6vh * var(--scale));
+  background: url('/segments/segment_e.svg') no-repeat;
+  background-size: auto 100%;
+  top:calc(-0.1vh * var(--scale));
+  left:calc(0.4vh * var(--scale));
+}
+.segment_f {
+  position:absolute;
+  width:calc(2.5vh * var(--scale));
+  height:calc(20vh * var(--scale));
+  background: url('/segments/segment_f.svg') no-repeat;
+  background-size: 100%;
+  top:calc(0.25vh * var(--scale));
+  left:calc(-1.2vh * var(--scale));
+}
+.segment_h {
+  position:absolute;
+  width:calc(3vh * var(--scale));
+  height:calc(20vh * var(--scale));
+  background: url('/segments/segment_h.svg') no-repeat;
+  background-size: 100%;
+  top:calc(-0.1vh * var(--scale));
+  left:calc(4.7vh * var(--scale));
+}
+@-moz-document url-prefix() {
+  .segment_h {
+    left:calc(5vh * var(--scale));
+    top:calc(-0.3vh * var(--scale));
+  }
+}
+.segment_j {
+  position:absolute;
+  height:calc(1.55vh * var(--scale));
+  width:calc(6vh * var(--scale));
+  background: url('/segments/segment_j.svg') no-repeat;
+  background-size: auto 100%;
+  top:calc(4.83vh * var(--scale));
+  left:calc(0.25vh * var(--scale));
+}
+.segment_k {
+  position:absolute;
+  width:calc(2.66vh * var(--scale));
+  height:calc(20vh * var(--scale));
+  background: url('/segments/segment_k.svg') no-repeat;
+  background-size: 100%;
+  top:calc(5.55vh * var(--scale));
+  left:calc(-2.4vh * var(--scale));
+}
+@-moz-document url-prefix() {
+  .segment_k {
+    top:calc(5.4vh * var(--scale));
+    left:calc(-2.45vh * var(--scale));
+  }
+}
+
+.segment_m {
+  position:absolute;
+  width:calc(2.5vh * var(--scale));
+  height:calc(20vh * var(--scale));
+  background: url('/segments/segment_m.svg') no-repeat;
+  background-size: 100%;
+  top:calc(5.6vh * var(--scale));
+  left:calc(3.65vh * var(--scale));
+}
+
+@-moz-document url-prefix() {
+  .segment_m {
+    top:calc(5.8vh * var(--scale));
+    left:calc(3.9vh * var(--scale));
+  }
+}
+.segment_n {
+  position:absolute;
+  height:calc(1.5vh * var(--scale));
+  width:calc(7vh * var(--scale));
+  background: url('/segments/segment_n.svg') no-repeat;
+  background-size: auto 100%;
+  top:calc(9.6vh * var(--scale));
+  left:calc(-2.05vh * var(--scale));
+}
+@-moz-document url-prefix() {
+  .segment_n {
+    left:calc(-2.5vh * var(--scale));
+  }
+}

@@ -1,0 +1,44 @@
+.clientList {
+    position:absolute;
+    bottom:0;
+    right: 0;
+    display: flex;
+    flex-wrap: wrap-reverse; /* Wrap items from bottom to top */
+    flex-direction: row-reverse; /* Align items from right to left */
+    gap: 16px;
+    padding: 16px;
+    justify-content: flex-end; /* Align items to the right */
+    width: 15vw;
+  }
+  
+.client-box {
+    border: 1px solid #ccc;
+    background-color: #f0f8ff; /* Optional: Change to desired color */
+    border-radius: 8px;
+    padding: 1vh;
+    text-align: center;
+    transition: all 0.3s ease-in-out;
+}
+
+.client-box img.client-flag {
+    width: 3vh;
+    height: auto;
+}
+
+.client-box p {
+    width: 3vh;
+    height: auto;
+}
+
+.client-box.you {
+    border: 2px solid #007bff; /* Change to desired color */
+    padding: calc(1vh - 1px);
+    background-color: #f0f8ff; /* Optional: Change to desired color */
+}
+
+/* Display clients if aspect ratio bigger than 14:9 */
+@media (max-aspect-ratio: 15/9) {
+    .clientList{
+        display: none !important;
+    }
+}

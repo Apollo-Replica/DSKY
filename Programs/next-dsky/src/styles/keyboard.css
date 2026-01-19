@@ -1,0 +1,223 @@
+/* Visibility */
+.keyboard{
+    display: none
+}
+
+.toggleKeyboard{
+    display: none;
+}
+
+/* Display keyboard only if aspect ratio bigger than 4:3 */
+@media (min-aspect-ratio: 4/3) {
+    /* Change scale if keyboard shown */
+    .keyboard-1{
+      --scale: 0.7 !important;
+      --margin-top: -3vh !important;
+    }
+
+    .keyboard-1 .keyboard{
+      display: block;
+    }
+
+    .toggleKeyboard{
+        display: block;
+    }
+}
+
+.toggleKeyboard{
+    background: linear-gradient(45deg, #247cef, #d9534f);
+    user-select: none; /* Prevent text selection */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.1s ease-in-out;
+    cursor: pointer;
+    position:absolute;
+    border-radius: 2vh;
+    left:2vh;
+    bottom:2vh;
+    width: 10vh;
+    height: 10vh;
+}
+
+.keyboard-1 .keyboard{
+    height: calc(40vh * var(--scale));;
+    width: calc(100vh * var(--scale));
+    top: 67vh;
+    left: 50%;
+    transform: translateX(-50%);
+    position:absolute;
+}
+
+/* .keyboard-1 .keyboard div{
+    background-color: red;
+} */
+
+.key-verb{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(6.4vh * var(--scale));
+    left: 0;
+}
+
+.key-noun{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(19.4vh * var(--scale));
+    left: 0;
+}
+
+.key-plus{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(-1vh * var(--scale));
+    left: calc(14.5vh * var(--scale));
+}
+
+.key-minus{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(13vh * var(--scale));
+    left: calc(14.5vh * var(--scale));
+}
+
+.key-0{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(27vh * var(--scale));
+    left: calc(14.5vh * var(--scale));
+}
+
+.key-7{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(-1vh * var(--scale));
+    left: calc(29vh * var(--scale));
+}
+
+.key-4{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(13vh * var(--scale));
+    left: calc(29vh * var(--scale));
+}
+
+.key-1{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(27vh * var(--scale));
+    left: calc(29vh * var(--scale));
+}
+
+.key-8{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(-1vh * var(--scale));
+    left: calc(44vh * var(--scale));
+}
+
+.key-5{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(13vh * var(--scale));
+    left: calc(44vh * var(--scale));
+}
+
+.key-2{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(27vh * var(--scale));
+    left: calc(44vh * var(--scale));
+}
+
+.key-9{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(-1vh * var(--scale));
+    left: calc(58.7vh * var(--scale));
+}
+
+.key-6{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(13vh * var(--scale));
+    left: calc(58.7vh * var(--scale));
+}
+
+.key-3{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(27vh * var(--scale));
+    left: calc(58.7vh * var(--scale));
+}
+
+.key-clr{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(-1vh * var(--scale));
+    left: calc(73.5vh * var(--scale));
+}
+
+.key-pro{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(13vh * var(--scale));
+    left: calc(73.5vh * var(--scale));
+}
+
+.key-keyrel{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(27vh * var(--scale));
+    left: calc(73.5vh * var(--scale));
+}
+
+.key-entr{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(6.4vh * var(--scale));
+    left: calc(88vh * var(--scale));
+}
+
+.key-rset{
+    position: absolute;
+    z-index: 1;
+    height: calc(11.8vh * var(--scale));
+    width: calc(11.8vh * var(--scale));
+    top: calc(19.4vh * var(--scale));
+    left: calc(88vh * var(--scale));
+}
