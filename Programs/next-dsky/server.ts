@@ -1,10 +1,16 @@
 import { createServer } from 'http'
-import { parse } from 'url'
+import { parse, fileURLToPath } from 'url'
+import path from 'path'
 import next from 'next'
 import { WebSocketServer } from 'ws'
 import { program } from 'commander'
 import * as dotenv from 'dotenv'
 import { initServer } from './src/server'
+
+// Ensure Next resolves config/deps relative to this project directory,
+// even if the process is launched from a parent folder (e.g. `Programs/`).
+const projectDir = path.dirname(fileURLToPath(import.meta.url))
+process.chdir(projectDir)
 
 dotenv.config()
 
@@ -13,6 +19,7 @@ const hostname = 'localhost'
 
 program
     .option('-s, --serial <string>', 'Serial port path')
+    .option('-i, --interface <string>', 'mDNS multicast outbound interface IPv4 (Windows multi-NIC fix)')
     .option('-b, --baud <number>', 'Baud rate', '9600')
     .option('-m, --mode <string>', 'Skip config, use source directly')
     .option('-y, --yaagc <string>', 'yaAGC version')
@@ -23,7 +30,7 @@ const options = program.opts()
 
 const port = parseInt(options.port || '3000')
 
-const app = next({ dev, hostname, port })
+const app = next({ dev, hostname, port, dir: projectDir })
 const handle = app.getRequestHandler()
 
 app.prepare().then(() => {

@@ -35,7 +35,7 @@ const performReset = async () => {
 const startConfigMode = async () => {
     // Create and start config integration
     // Pass preset serial port if specified via CLI
-    configIntegration = new ConfigIntegration(programOptions.serial)
+    configIntegration = new ConfigIntegration(programOptions.serial, programOptions.interface)
     
     // Set up config state broadcasting
     configIntegration.setConfigCallback((configState) => {
@@ -51,6 +51,11 @@ const startConfigMode = async () => {
     // Set up network scan request handler
     configIntegration.setOnScanRequest(() => {
         triggerNetworkScan()
+    })
+
+    // Windows: set mDNS outbound interface from config selection
+    configIntegration.setOnNetworkInterfaceSelected((ip) => {
+        mdnsService.setRuntimeInterface(ip)
     })
 
     // Start config as the active integration
@@ -93,10 +98,13 @@ const startSelectedIntegration = async (config: ConfigResult) => {
     broadcastConfigState({
         ready: true,
         step: 'confirm',
+        stepNumber: 1,
         serialPort: config.serialPort,
         inputSource: config.inputSource,
         bridgeUrl: config.bridgeUrl,
         yaagcVersion: config.yaagcVersion,
+        networkInterface: null,
+        availableInterfaces: [],
         availablePorts: [],
         discoveredApis: [],
         scanning: false,
@@ -127,19 +135,37 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     initWebSocket(wss)
 
     // Initialize mDNS service for advertisement and discovery
-    const serviceName = process.env.DSKY_NAME || undefined
-    mdnsService.start({
-        port: options.port || 3000,
-        name: serviceName,
-        version: '0.1.0'
-    })
+    if (process.env.DSKY_MDNS_DISABLED !== '1') {
+        try {
+            const serviceName = process.env.DSKY_NAME || undefined
+            const mdnsPort =
+                typeof options.port === 'string'
+                    ? parseInt(options.port, 10)
+                    : (options.port ?? 3000)
 
-    // Wire mDNS discovery updates to config integration
-    mdnsService.setOnDiscoveryUpdate((apis) => {
-        if (configIntegration) {
-            configIntegration.updateDiscoveredApis(apis)
+            // Prefer CLI-provided interface without requiring config step.
+            if (typeof options.interface === 'string' && options.interface.trim().length > 0) {
+                mdnsService.setRuntimeInterface(options.interface.trim())
+            }
+
+            mdnsService.start({
+                port: Number.isFinite(mdnsPort) ? mdnsPort : 3000,
+                name: serviceName,
+                version: '0.1.0'
+            })
+
+            // Wire mDNS discovery updates to config integration
+            mdnsService.setOnDiscoveryUpdate((apis) => {
+                if (configIntegration) {
+                    configIntegration.updateDiscoveredApis(apis)
+                }
+            })
+        } catch (err) {
+            console.error('[Server] mDNS initialization failed:', err)
         }
-    })
+    } else {
+        console.log('[Server] mDNS disabled via DSKY_MDNS_DISABLED')
+    }
 
     // Set up graceful shutdown
     const shutdown = () => {

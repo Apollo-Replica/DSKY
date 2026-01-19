@@ -6,11 +6,13 @@ import ConfigDisplay from "./ConfigDisplay"
 
 interface ConfigState {
     ready: boolean
-    step: 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
+    step: 'network' | 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
+    stepNumber?: number
     serialPort: string | null
     inputSource: string | null
     bridgeUrl?: string
     yaagcVersion?: string
+    networkInterface?: string | null
     availablePorts: Array<{ path: string, name: string }>
     discoveredApis: Array<{ ip: string, port: number, url: string, name?: string }>
     scanning: boolean

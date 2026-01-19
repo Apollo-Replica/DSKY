@@ -2,11 +2,13 @@
 
 interface ConfigState {
     ready: boolean
-    step: 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
+    step: 'network' | 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
+    stepNumber?: number
     serialPort: string | null
     inputSource: string | null
     bridgeUrl?: string
     yaagcVersion?: string
+    networkInterface?: string | null
     availablePorts: Array<{ path: string, name: string }>
     discoveredApis: Array<{ ip: string, port: number, url: string, name?: string, version?: string, mode?: string }>
     scanning: boolean
@@ -22,21 +24,13 @@ interface ConfigDisplayProps {
 }
 
 const STEP_TITLES: Record<string, string> = {
+    network: 'Select Network Interface',
     serial: 'Select Serial Port',
     source: 'Select AGC Source',
     bridge: 'Select Bridge Target',
     manualUrl: 'Enter WebSocket URL',
     yaagc: 'Select yaAGC Version',
     confirm: 'Confirm Configuration'
-}
-
-const STEP_NUMBERS: Record<string, string> = {
-    serial: '00',
-    source: '01',
-    bridge: '02',
-    manualUrl: '02',
-    yaagc: '02',
-    confirm: '03'
 }
 
 export default function ConfigDisplay({ config, onAction, onTextChange }: ConfigDisplayProps) {
@@ -64,7 +58,7 @@ export default function ConfigDisplay({ config, onAction, onTextChange }: Config
             {/* Header */}
             <div className="text-center mb-6">
                 <div className="text-green-400 text-sm font-mono mb-1">
-                    STEP {STEP_NUMBERS[step]}
+                    STEP {String(config.stepNumber ?? 1).padStart(2, '0')}
                 </div>
                 <h1 className="text-green-500 text-2xl font-mono font-bold">
                     {STEP_TITLES[step]}
@@ -188,7 +182,7 @@ export default function ConfigDisplay({ config, onAction, onTextChange }: Config
                     <button
                         onClick={() => onAction('back')}
                         className="px-4 py-2 bg-gray-700 text-gray-300 font-mono rounded hover:bg-gray-600 transition-colors"
-                        disabled={step === 'serial'}
+                        disabled={(config.stepNumber ?? 1) <= 1}
                     >
                         ← Back
                     </button>
