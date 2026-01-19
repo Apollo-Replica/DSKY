@@ -8,7 +8,7 @@ interface ConfigState {
     bridgeUrl?: string
     yaagcVersion?: string
     availablePorts: Array<{ path: string, name: string }>
-    discoveredApis: Array<{ ip: string, port: number, url: string, name?: string }>
+    discoveredApis: Array<{ ip: string, port: number, url: string, name?: string, version?: string, mode?: string }>
     scanning: boolean
     selectedIndex: number
     options: string[]
@@ -75,7 +75,7 @@ export default function ConfigDisplay({ config, onAction, onTextChange }: Config
             {scanning && (
                 <div className="text-center mb-4">
                     <div className="text-yellow-400 font-mono animate-pulse">
-                        Scanning network...
+                        Discovering DSKY services...
                     </div>
                 </div>
             )}

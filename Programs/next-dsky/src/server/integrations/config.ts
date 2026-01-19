@@ -1,7 +1,7 @@
 import { SerialPort } from 'serialport'
 import { AgcIntegration } from './AgcIntegration'
 import { V35_TEST } from '../../utils/dskyStates'
-import { DiscoveredAPI } from '../networkScan'
+import { DiscoveredAPI } from '../mdnsService'
 
 export interface ConfigState {
     ready: boolean
@@ -277,7 +277,7 @@ export class ConfigIntegration extends AgcIntegration {
             case 'bridge':
                 return [
                     'Public (dsky.ortizma.com)',
-                    ...state.discoveredApis.map(api => api.ip),
+                    ...state.discoveredApis.map(api => api.name || api.ip),
                     'Rescan',
                     'Manual URL'
                 ]

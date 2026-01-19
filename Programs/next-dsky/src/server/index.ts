@@ -3,7 +3,7 @@ import { exec } from 'child_process'
 import { AgcIntegration, getIntegration, ConfigIntegration, ConfigResult } from './integrations'
 import { createSerial, createSerialFromConfig, setSerialListener, updateSerialState, closeSerial } from './serial'
 import { initWebSocket, setWebSocketListener, updateWebSocketState, setConfigListener, broadcastConfigState } from './socket'
-import { scanForDSKYApis } from './networkScan'
+import { mdnsService } from './mdnsService'
 
 let activeIntegration: AgcIntegration | null = null
 let configIntegration: ConfigIntegration | null = null
@@ -105,25 +105,19 @@ const startSelectedIntegration = async (config: ConfigResult) => {
     })
 }
 
-const triggerNetworkScan = async () => {
-    console.log('[Server] Starting network scan...')
+const triggerNetworkScan = () => {
+    console.log('[Server] Triggering mDNS rescan...')
 
-    try {
-        const apis = await scanForDSKYApis((current, total) => {
-            if (current % 50 === 0) {
-                console.log(`[Server] Scanning: ${current}/${total}`)
-            }
-        })
-        console.log(`[Server] Found ${apis.length} DSKY APIs`)
-        if (configIntegration) {
-            configIntegration.updateDiscoveredApis(apis)
-        }
-    } catch (error) {
-        console.error('[Server] Network scan failed:', error)
-        if (configIntegration) {
-            configIntegration.updateDiscoveredApis([])
-        }
+    // Get current discovered services and trigger a rescan
+    const apis = mdnsService.getDiscoveredServices()
+    console.log(`[Server] Currently discovered: ${apis.length} DSKY APIs`)
+
+    if (configIntegration) {
+        configIntegration.updateDiscoveredApis(apis)
     }
+
+    // Trigger rescan for fresh results
+    mdnsService.rescan()
 }
 
 export const initServer = async (wss: WebSocketServer, options: any) => {
@@ -131,6 +125,30 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
 
     // Initialize WebSocket server
     initWebSocket(wss)
+
+    // Initialize mDNS service for advertisement and discovery
+    const serviceName = process.env.DSKY_NAME || undefined
+    mdnsService.start({
+        port: options.port || 3000,
+        name: serviceName,
+        version: '0.1.0'
+    })
+
+    // Wire mDNS discovery updates to config integration
+    mdnsService.setOnDiscoveryUpdate((apis) => {
+        if (configIntegration) {
+            configIntegration.updateDiscoveredApis(apis)
+        }
+    })
+
+    // Set up graceful shutdown
+    const shutdown = () => {
+        console.log('[Server] Shutting down...')
+        mdnsService.stop()
+        process.exit(0)
+    }
+    process.on('SIGTERM', shutdown)
+    process.on('SIGINT', shutdown)
 
     // Create serial connection if specified via CLI
     await createSerial(options.serial, options.baud)
@@ -170,7 +188,7 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                 await configIntegration.refreshSerialPorts()
                 break
             case 'config:scan-apis':
-                await triggerNetworkScan()
+                triggerNetworkScan()
                 break
             case 'config:next':
                 // In config mode, '+' and '-' are inverted (hardware behavior).
