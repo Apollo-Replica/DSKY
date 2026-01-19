@@ -1,4 +1,8 @@
 import * as net from 'net'
+import * as os from 'os'
+import * as path from 'path'
+import * as fs from 'fs'
+import { spawn, type ChildProcess, execFile } from 'node:child_process'
 import { OFF_TEST } from '../../utils/dskyStates'
 import { YAAGC_VERSIONS } from './config'
 import { AgcIntegration } from './AgcIntegration'
@@ -52,6 +56,8 @@ const getYaAGCPort = (options: { yaagc?: string } = {}): number => {
         case 'Comanche055': return 19697
         case 'Luminary099': return 19797
         case 'Luminary210': return 19897
+        // "own" means user started yaAGC themselves. Historically, VirtualAGC examples use 4000.
+        case 'own': return 4000
         default: return 19697
     }
 }
@@ -64,6 +70,7 @@ export class YaAGCIntegration extends AgcIntegration {
     private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
     private flashInterval: ReturnType<typeof setInterval> | null = null
     private options: { yaagc?: string } = {}
+    private yaagcProcess: ChildProcess | null = null
     
     // AGC parsing state
     private last10: number = 0
@@ -91,7 +98,8 @@ export class YaAGCIntegration extends AgcIntegration {
 
     protected async onStart(options: Record<string, any>): Promise<void> {
         this.options = options
-        const port = getYaAGCPort(options)
+        const version = (options?.yaagc as string | undefined) || 'Comanche055'
+        const port = getYaAGCPort({ yaagc: version })
         
         // Reset state
         this.last10 = 0
@@ -105,31 +113,15 @@ export class YaAGCIntegration extends AgcIntegration {
         this.state = { ...OFF_TEST }
         this.inputBuffer = []
 
-        this.client = new net.Socket()
-        this.client.connect({ port, host: '127.0.0.1', keepAlive: true }, () => {
-            console.log('[yaAGC] Socket connected!')
-            this.state = { ...OFF_TEST }
-        })
+        // If user selected a known version, we should spawn yaAGC ourselves (like legacy api-dsky did).
+        // If version === 'own', we only connect to an already running yaAGC.
+        if (version !== 'own') {
+            await this.ensureYaAGCStarted(version, port)
+        } else {
+            console.log(`[yaAGC] Using user-started yaAGC on port ${port}`)
+        }
 
-        this.client.on('data', (data) => {
-            if (!this.running) return
-            const newbytes = data.toJSON().data
-            if (newbytes.every((byte: number) => byte === 255)) return // Ping packet
-            this.inputBuffer = [...this.inputBuffer, ...newbytes]
-            while (this.inputBuffer.length >= 4) {
-                const relevantData = this.outputFromAGC()
-                if (!relevantData) continue
-                this.emitCurrentState()
-            }
-        })
-
-        this.client.on('close', async (hadError: boolean) => {
-            if (!hadError && this.running) await this.handleSocketError('closed')
-        })
-
-        this.client.on('error', async () => {
-            if (this.running) await this.handleSocketError('connection failed')
-        })
+        this.connectSocket(port)
 
         // Set up verb/noun flashing interval
         this.flashInterval = setInterval(() => {
@@ -154,15 +146,142 @@ export class YaAGCIntegration extends AgcIntegration {
             this.client.destroy()
             this.client = null
         }
+
+        // If we spawned yaAGC, stop it too.
+        this.stopSpawnedYaAGC()
     }
 
     private async handleSocketError(error: string): Promise<void> {
         if (!this.running) return
-        console.log(`[yaAGC] Socket ${error}! Reconnecting...`)
+        console.log(`[yaAGC] Socket ${error}! Reconnecting to port ${getYaAGCPort(this.options)}...`)
         this.client?.destroy()
+        this.client = null
         this.reconnectTimeout = setTimeout(() => {
-            if (this.running) this.onStart(this.options)
+            if (this.running) this.connectSocket(getYaAGCPort(this.options))
         }, 2000)
+    }
+
+    private connectSocket(port: number): void {
+        // Avoid multiple concurrent sockets.
+        this.client?.destroy()
+        this.client = new net.Socket()
+
+        this.client.connect({ port, host: '127.0.0.1', keepAlive: true }, () => {
+            console.log(`[yaAGC] Socket connected (port ${port})`)
+            this.state = { ...OFF_TEST }
+        })
+
+        this.client.on('data', (data) => {
+            if (!this.running) return
+            const newbytes = data.toJSON().data
+            if (newbytes.every((byte: number) => byte === 255)) return // Ping packet
+            this.inputBuffer = [...this.inputBuffer, ...newbytes]
+            while (this.inputBuffer.length >= 4) {
+                const relevantData = this.outputFromAGC()
+                if (!relevantData) continue
+                this.emitCurrentState()
+            }
+        })
+
+        this.client.on('close', async (hadError: boolean) => {
+            if (!hadError && this.running) await this.handleSocketError('closed')
+        })
+
+        this.client.on('error', async () => {
+            if (this.running) await this.handleSocketError('connection failed')
+        })
+    }
+
+    private async ensureYaAGCStarted(version: string, port: number): Promise<void> {
+        if (this.yaagcProcess) {
+            // Already started by this integration instance.
+            return
+        }
+
+        const lmModes: Record<string, string> = {
+            Luminary099: 'LM',
+            Luminary210: 'LM1'
+        }
+        const mode = lmModes[version] || 'CM'
+
+        const virtualAgcRoot =
+            (process.env.VIRTUALAGC_HOME && process.env.VIRTUALAGC_HOME.trim().length > 0)
+                ? process.env.VIRTUALAGC_HOME.trim()
+                : path.resolve(os.homedir(), 'VirtualAGC')
+
+        const binDir = path.resolve(virtualAgcRoot, 'bin')
+        const resourcesDir = path.resolve(virtualAgcRoot, 'Resources')
+
+        const candidates = os.platform() === 'win32'
+            ? [path.resolve(binDir, 'yaAGC.exe'), path.resolve(binDir, 'yaAGC')]
+            : [path.resolve(binDir, 'yaAGC')]
+
+        const command = candidates.find(p => fs.existsSync(p))
+        if (!command) {
+            const msg =
+                `[yaAGC] Could not find yaAGC executable.\n` +
+                `Looked for: ${candidates.join(', ')}\n` +
+                `Set VIRTUALAGC_HOME to your VirtualAGC folder.`
+            console.error(msg)
+            throw new Error(msg)
+        }
+
+        if (!fs.existsSync(resourcesDir)) {
+            const msg =
+                `[yaAGC] Could not find VirtualAGC Resources folder at '${resourcesDir}'.\n` +
+                `Set VIRTUALAGC_HOME to your VirtualAGC folder.`
+            console.error(msg)
+            throw new Error(msg)
+        }
+
+        const coreArg = `--core=source/${version}/${version}.bin`
+        const cfgArg = `--cfg=${mode}.ini`
+        const portArg = `--port=${port}`
+        const args = [coreArg, cfgArg, portArg]
+
+        console.log(`[yaAGC] Starting yaAGC (${version}) on port ${port}`)
+        const child = spawn(command, args, {
+            cwd: resourcesDir,
+            stdio: ['ignore', 'pipe', 'pipe']
+        })
+        this.yaagcProcess = child
+
+        child.stdout?.on('data', (buf) => {
+            const s = String(buf).trim()
+            if (s.length) console.log(`[yaAGC] ${s}`)
+        })
+        child.stderr?.on('data', (buf) => {
+            const s = String(buf).trim()
+            if (s.length) console.error(`[yaAGC] ${s}`)
+        })
+        child.on('exit', (code, signal) => {
+            console.log(`[yaAGC] yaAGC process exited (code=${code}, signal=${signal})`)
+            this.yaagcProcess = null
+        })
+    }
+
+    private stopSpawnedYaAGC(): void {
+        if (!this.yaagcProcess?.pid) return
+
+        const pid = this.yaagcProcess.pid
+        console.log(`[yaAGC] Stopping spawned yaAGC (pid ${pid})`)
+
+        try {
+            this.yaagcProcess.kill()
+        } catch (e) {
+            console.error('[yaAGC] Failed to kill yaAGC process:', e)
+        }
+
+        // Windows sometimes needs taskkill to terminate the process tree.
+        if (os.platform() === 'win32') {
+            try {
+                execFile('taskkill', ['/pid', String(pid), '/t', '/f'], () => { })
+            } catch {
+                // ignore
+            }
+        }
+
+        this.yaagcProcess = null
     }
 
     private sendInputPacketToAGC(tuple: [number, number, number]): void {
