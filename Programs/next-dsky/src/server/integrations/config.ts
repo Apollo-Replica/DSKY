@@ -26,6 +26,7 @@ export interface ConfigState {
     options: string[]
     resetDisabled?: boolean
     textInput?: string
+    wifiConnectAvailable?: boolean
 }
 
 export const INPUT_SOURCES = [
@@ -60,6 +61,7 @@ export class ConfigIntegration extends AgcIntegration {
     private onComplete: ((result: ConfigResult) => Promise<void>) | null = null
     private onScanRequest: (() => void) | null = null
     private onNetworkInterfaceSelected: ((ip: string | null) => void) | null = null
+    private onWifiConfigure: (() => void) | null = null
     private presetSerialPort: string | null = null
     private presetNetworkInterface: string | null = null
 
@@ -121,13 +123,21 @@ export class ConfigIntegration extends AgcIntegration {
     }
 
     /**
+     * Set callback for when WiFi configuration is requested
+     */
+    setOnWifiConfigure(callback: () => void): void {
+        this.onWifiConfigure = callback
+    }
+
+    /**
      * Get current config state
      */
     getConfigState(): ConfigState {
         return {
             ...this.configState,
             stepNumber: this.computeStepNumber(this.configState),
-            resetDisabled: process.env.DISABLE_RESET === '1'
+            resetDisabled: process.env.DISABLE_RESET === '1',
+            wifiConnectAvailable: this.onWifiConfigure !== null
         }
     }
 
@@ -420,8 +430,10 @@ export class ConfigIntegration extends AgcIntegration {
     }
 
     private prev(): void {
+        // Allow going to -1 (WiFi config option) when WiFi callback is set
+        const minIndex = this.onWifiConfigure ? -1 : 0
         this.updateConfig({
-            selectedIndex: Math.max(this.configState.selectedIndex - 1, 0)
+            selectedIndex: Math.max(this.configState.selectedIndex - 1, minIndex)
         })
     }
 
@@ -433,6 +445,14 @@ export class ConfigIntegration extends AgcIntegration {
 
     private async select(): Promise<void> {
         const { step, selectedIndex, options, availablePorts, discoveredApis, availableInterfaces } = this.configState
+
+        // Handle WiFi config selection (index -1)
+        if (selectedIndex === -1 && this.onWifiConfigure) {
+            this.onWifiConfigure()
+            // Reset to index 0 after triggering WiFi config
+            this.updateConfig({ selectedIndex: 0 })
+            return
+        }
 
         switch (step) {
             case 'network': {

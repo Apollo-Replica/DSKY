@@ -20,6 +20,7 @@ interface ConfigState {
     options: string[]
     resetDisabled?: boolean
     textInput?: string
+    wifiConnectAvailable?: boolean
 }
 
 export default function ConfigPageContent() {
@@ -210,6 +211,13 @@ export default function ConfigPageContent() {
         router.push('/')
     }
 
+    const handleWifiConnect = () => {
+        const ws = wsRef.current
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'config:wifi' }))
+        }
+    }
+
     if (!connected) {
         return (
             <main className="flex min-h-screen flex-col items-center justify-center bg-black text-green-500 font-mono">
@@ -264,6 +272,14 @@ export default function ConfigPageContent() {
                                 Reconfigure
                             </button>
                         )}
+                        {configState.wifiConnectAvailable && (
+                            <button
+                                onClick={handleWifiConnect}
+                                className="w-full py-3 px-4 bg-blue-700 hover:bg-blue-600 text-white font-semibold rounded transition-colors"
+                            >
+                                Configure WiFi
+                            </button>
+                        )}
                     </div>
                 </div>
             </main>
@@ -272,7 +288,12 @@ export default function ConfigPageContent() {
 
     return (
         <main className="flex min-h-screen flex-col items-center justify-center bg-black">
-            <ConfigDisplay config={configState} onAction={handleAction} onTextChange={handleTextChange} />
+            <ConfigDisplay
+                config={configState}
+                onAction={handleAction}
+                onTextChange={handleTextChange}
+                onWifiConnect={configState?.wifiConnectAvailable ? handleWifiConnect : undefined}
+            />
         </main>
     )
 }

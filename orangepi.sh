@@ -12,6 +12,7 @@ if [ "$1" = "cron" ]; then
         sleep 5
         wmctrl -a chromium
     fi
+
 else
     xttitle next-dsky
     unclutter -idle 3 -root &>/dev/null &
@@ -21,7 +22,8 @@ else
         cd ~/DSKY/Programs/next-dsky
         npm start -- \
             -s /dev/ttyUSB0 \
-            --shutdown 'shutdown -h now' "$@" &
+            --shutdown 'shutdown -h now' \
+            --wifi-connect "$@" &
         next_pid=$!
         killall chromium-browser chromium &>/dev/null
         # Wait until the :3000 app is actually responding before opening Chromium.

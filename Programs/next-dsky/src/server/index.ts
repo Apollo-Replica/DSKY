@@ -10,6 +10,17 @@ let configIntegration: ConfigIntegration | null = null
 let pendingUpdate: any = null
 let programOptions: any = {}
 
+const launchWifiConnect = () => {
+    console.log('[Server] Launching wifi-connect...')
+    exec('sudo wifi-connect --portal-ssid "DSKY Replica"', (err) => {
+        if (err) {
+            console.error('[Server] wifi-connect failed:', err)
+        } else {
+            console.log('[Server] wifi-connect completed')
+        }
+    })
+}
+
 const stopIntegration = () => {
     if (activeIntegration) {
         console.log('[Server] Stopping active integration')
@@ -57,6 +68,14 @@ const startConfigMode = async () => {
     configIntegration.setOnNetworkInterfaceSelected((ip) => {
         mdnsService.setRuntimeInterface(ip)
     })
+
+    // Set up WiFi Connect handler (only if --wifi-connect arg is passed)
+    console.log(`[Server] WiFi Connect option: ${programOptions.wifiConnect ? 'enabled' : 'disabled'}`)
+    if (programOptions.wifiConnect) {
+        configIntegration.setOnWifiConfigure(() => {
+            launchWifiConnect()
+        })
+    }
 
     // Start config as the active integration
     activeIntegration = configIntegration
@@ -192,7 +211,7 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     // Handle config messages from WebSocket (for UI interactions)
     setConfigListener(async (type: string, data?: any) => {
         console.log(`[Server] Config message: ${type}`)
-        
+
         // Handle reset specially - it can happen anytime
         if (type === 'config:reset') {
             if (process.env.DISABLE_RESET === '1') {
@@ -200,6 +219,16 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                 return
             }
             performReset()
+            return
+        }
+
+        // Handle WiFi Connect request (only if enabled)
+        if (type === 'config:wifi') {
+            if (!programOptions.wifiConnect) {
+                console.log('[Server] wifi:configure ignored - --wifi-connect not enabled')
+                return
+            }
+            launchWifiConnect()
             return
         }
 

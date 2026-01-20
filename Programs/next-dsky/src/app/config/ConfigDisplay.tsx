@@ -15,12 +15,14 @@ interface ConfigState {
     selectedIndex: number
     options: string[]
     textInput?: string
+    wifiConnectAvailable?: boolean
 }
 
 interface ConfigDisplayProps {
     config: ConfigState | null
     onAction: (action: string) => void
     onTextChange?: (text: string) => void
+    onWifiConnect?: () => void
 }
 
 const STEP_TITLES: Record<string, string> = {
@@ -33,7 +35,7 @@ const STEP_TITLES: Record<string, string> = {
     confirm: 'Confirm Configuration'
 }
 
-export default function ConfigDisplay({ config, onAction, onTextChange }: ConfigDisplayProps) {
+export default function ConfigDisplay({ config, onAction, onTextChange, onWifiConnect }: ConfigDisplayProps) {
     if (!config) {
         return (
             <div className="text-green-500 font-mono text-xl">
@@ -55,6 +57,22 @@ export default function ConfigDisplay({ config, onAction, onTextChange }: Config
 
     return (
         <div className="w-full max-w-md p-6 bg-gray-900 rounded-lg shadow-xl">
+            {/* WiFi config option - above everything, selectable via DSKY keys */}
+            {config.wifiConnectAvailable && onWifiConnect && step !== 'manualUrl' && (
+                <div className="mb-4">
+                    <button
+                        onClick={() => onWifiConnect()}
+                        className={`w-full p-3 text-left font-mono rounded transition-colors border ${
+                            selectedIndex === -1
+                                ? 'bg-blue-600 text-white border-blue-400'
+                                : 'bg-blue-900/50 text-blue-300 hover:bg-blue-800 border-blue-700/50'
+                        }`}
+                    >
+                        Configure WiFi
+                    </button>
+                </div>
+            )}
+
             {/* Header */}
             <div className="text-center mb-6">
                 <div className="text-green-400 text-sm font-mono mb-1">
