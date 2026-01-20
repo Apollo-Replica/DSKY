@@ -80,7 +80,18 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 rounded-lg">
                     <div className="text-center font-mono">
                         <div className="text-blue-300 text-lg">WiFi setup running…</div>
-                        <div className="text-gray-300 text-sm mt-2">Waiting for wifi-connect to finish.</div>
+                        <div className="text-gray-300 text-sm mt-2">
+                            Scan this code or connect to <span className="text-white">DSKY Replica</span> to finish configuration.
+                        </div>
+                        <div className="mt-4 flex justify-center">
+                            <img
+                                src="/wifi-qr.png"
+                                alt="WiFi QR for DSKY Replica"
+                                className="bg-white p-2 rounded"
+                                style={{ width: 180, height: 180 }}
+                            />
+                        </div>
+                        <div className="text-gray-300 text-xs mt-3">Waiting for wifi-connect to finish…</div>
                     </div>
                 </div>
             )}
