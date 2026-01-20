@@ -16,6 +16,7 @@ interface ConfigState {
     options: string[]
     textInput?: string
     wifiConnectAvailable?: boolean
+    wifiConnectRunning?: boolean
 }
 
 interface ConfigDisplayProps {
@@ -45,6 +46,7 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
     }
 
     const { step, options, selectedIndex, scanning, serialPort, inputSource, bridgeUrl, yaagcVersion, textInput } = config
+    const wifiBusy = config.wifiConnectRunning === true
 
     const isValidUrl = (url: string): boolean => {
         try {
@@ -56,20 +58,30 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
     }
 
     return (
-        <div className="w-full max-w-md p-6 bg-gray-900 rounded-lg shadow-xl">
+        <div className="relative w-full max-w-md p-6 bg-gray-900 rounded-lg shadow-xl">
             {/* WiFi config option - above everything, selectable via DSKY keys */}
             {config.wifiConnectAvailable && onWifiConnect && step !== 'manualUrl' && (
                 <div className="mb-4">
                     <button
                         onClick={() => onWifiConnect()}
+                        disabled={wifiBusy}
                         className={`w-full p-3 text-left font-mono rounded transition-colors border ${
                             selectedIndex === -1
                                 ? 'bg-blue-600 text-white border-blue-400'
                                 : 'bg-blue-900/50 text-blue-300 hover:bg-blue-800 border-blue-700/50'
-                        }`}
+                        } ${wifiBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         Configure WiFi
                     </button>
+                </div>
+            )}
+
+            {wifiBusy && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 rounded-lg">
+                    <div className="text-center font-mono">
+                        <div className="text-blue-300 text-lg">WiFi setup running…</div>
+                        <div className="text-gray-300 text-sm mt-2">Waiting for wifi-connect to finish.</div>
+                    </div>
                 </div>
             )}
 
@@ -105,6 +117,7 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
                             onChange={(e) => onTextChange?.(e.target.value)}
                             placeholder="wss://example.com/ws"
                             autoFocus
+                            disabled={wifiBusy}
                             className={`w-full p-3 bg-gray-800 text-green-400 font-mono rounded border-2 ${
                                 textInput && !isValidUrl(textInput)
                                     ? 'border-red-500'
@@ -120,13 +133,14 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
                     <div className="flex gap-2">
                         <button
                             onClick={() => onAction('back')}
+                            disabled={wifiBusy}
                             className="flex-1 py-3 px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 font-mono rounded transition-colors"
                         >
                             ← Cancel
                         </button>
                         <button
                             onClick={() => onAction('select')}
-                            disabled={!textInput || !isValidUrl(textInput)}
+                            disabled={wifiBusy || !textInput || !isValidUrl(textInput)}
                             className={`flex-1 py-3 px-4 font-mono rounded transition-colors ${
                                 textInput && isValidUrl(textInput)
                                     ? 'bg-green-600 hover:bg-green-500 text-black'
@@ -150,11 +164,12 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
                                 }
                                 setTimeout(() => onAction('select'), 100)
                             }}
+                            disabled={wifiBusy}
                             className={`w-full p-3 text-left font-mono rounded transition-colors ${
                                 index === selectedIndex
                                     ? 'bg-green-600 text-black'
                                     : 'bg-gray-800 text-green-400 hover:bg-gray-700'
-                            }`}
+                            } ${wifiBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <span className="mr-2 text-gray-500">{index}.</span>
                             {option}
@@ -200,7 +215,7 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
                     <button
                         onClick={() => onAction('back')}
                         className="px-4 py-2 bg-gray-700 text-gray-300 font-mono rounded hover:bg-gray-600 transition-colors"
-                        disabled={(config.stepNumber ?? 1) <= 1}
+                        disabled={wifiBusy || (config.stepNumber ?? 1) <= 1}
                     >
                         ← Back
                     </button>
@@ -208,12 +223,14 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
                         <button
                             onClick={() => onAction('prev')}
                             className="px-4 py-2 bg-gray-700 text-green-400 font-mono rounded hover:bg-gray-600 transition-colors"
+                            disabled={wifiBusy}
                         >
                             ↑
                         </button>
                         <button
                             onClick={() => onAction('next')}
                             className="px-4 py-2 bg-gray-700 text-green-400 font-mono rounded hover:bg-gray-600 transition-colors"
+                            disabled={wifiBusy}
                         >
                             ↓
                         </button>
@@ -221,6 +238,7 @@ export default function ConfigDisplay({ config, onAction, onTextChange, onWifiCo
                     <button
                         onClick={() => onAction('select')}
                         className="px-4 py-2 bg-green-600 text-black font-mono rounded hover:bg-green-500 transition-colors"
+                        disabled={wifiBusy}
                     >
                         Select →
                     </button>

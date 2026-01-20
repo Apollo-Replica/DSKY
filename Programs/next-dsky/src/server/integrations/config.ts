@@ -27,6 +27,7 @@ export interface ConfigState {
     resetDisabled?: boolean
     textInput?: string
     wifiConnectAvailable?: boolean
+    wifiConnectRunning?: boolean
 }
 
 export const INPUT_SOURCES = [
@@ -86,7 +87,8 @@ export class ConfigIntegration extends AgcIntegration {
             scanning: false,
             selectedIndex: 0,
             options: [],
-            textInput: ''
+            textInput: '',
+            wifiConnectRunning: false
         }
     }
 
@@ -129,6 +131,10 @@ export class ConfigIntegration extends AgcIntegration {
         this.onWifiConfigure = callback
     }
 
+    setWifiConnectRunning(running: boolean): void {
+        this.updateConfig({ wifiConnectRunning: running })
+    }
+
     /**
      * Get current config state
      */
@@ -137,7 +143,8 @@ export class ConfigIntegration extends AgcIntegration {
             ...this.configState,
             stepNumber: this.computeStepNumber(this.configState),
             resetDisabled: process.env.DISABLE_RESET === '1',
-            wifiConnectAvailable: this.onWifiConfigure !== null
+            wifiConnectAvailable: this.onWifiConfigure !== null,
+            wifiConnectRunning: this.configState.wifiConnectRunning === true
         }
     }
 
@@ -160,6 +167,10 @@ export class ConfigIntegration extends AgcIntegration {
     }
 
     async handleKey(key: string): Promise<void> {
+        if (this.configState.wifiConnectRunning) {
+            // Lock input while wifi-connect is running (avoid state corruption / accidental navigation)
+            return
+        }
         // Special handling for text input mode
         if (this.configState.step === 'manualUrl') {
             await this.handleTextInput(key)
@@ -246,6 +257,7 @@ export class ConfigIntegration extends AgcIntegration {
      * Handle text input from WebSocket (for web UI)
      */
     handleTextInputFromWeb(text: string): void {
+        if (this.configState.wifiConnectRunning) return
         if (this.configState.step === 'manualUrl') {
             this.updateConfig({ textInput: text })
         }

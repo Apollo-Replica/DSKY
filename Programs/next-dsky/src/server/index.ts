@@ -9,15 +9,35 @@ let activeIntegration: AgcIntegration | null = null
 let configIntegration: ConfigIntegration | null = null
 let pendingUpdate: any = null
 let programOptions: any = {}
+let wifiConnectRunning = false
+
+const setWifiConnectRunning = (running: boolean) => {
+    wifiConnectRunning = running
+    if (configIntegration) {
+        // This will broadcast via the integration callback
+        configIntegration.setWifiConnectRunning(running)
+    }
+}
 
 const launchWifiConnect = () => {
+    // wifi-connect is only allowed in config mode
+    if (!configIntegration) {
+        console.log('[Server] wifi-connect ignored - not in config mode')
+        return
+    }
+    if (wifiConnectRunning) {
+        console.log('[Server] wifi-connect already running; ignoring request')
+        return
+    }
     console.log('[Server] Launching wifi-connect...')
+    setWifiConnectRunning(true)
     exec('sudo wifi-connect --portal-ssid "DSKY Replica"', (err) => {
         if (err) {
             console.error('[Server] wifi-connect failed:', err)
         } else {
             console.log('[Server] wifi-connect completed')
         }
+        setWifiConnectRunning(false)
     })
 }
 
@@ -212,6 +232,12 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     setConfigListener(async (type: string, data?: any) => {
         console.log(`[Server] Config message: ${type}`)
 
+        // Lock out all config interactions while wifi-connect is running
+        if (wifiConnectRunning && type !== 'config:wifi') {
+            console.log('[Server] Ignoring config message - wifi-connect running')
+            return
+        }
+
         // Handle reset specially - it can happen anytime
         if (type === 'config:reset') {
             if (process.env.DISABLE_RESET === '1') {
@@ -225,7 +251,11 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
         // Handle WiFi Connect request (only if enabled)
         if (type === 'config:wifi') {
             if (!programOptions.wifiConnect) {
-                console.log('[Server] wifi:configure ignored - --wifi-connect not enabled')
+                console.log('[Server] config:wifi ignored - --wifi-connect not enabled')
+                return
+            }
+            if (!configIntegration) {
+                console.log('[Server] config:wifi ignored - not in config mode')
                 return
             }
             launchWifiConnect()
@@ -304,6 +334,9 @@ const setupKeyboardHandlers = (options: any) => {
         // 'o' is PRO key release - don't let it cancel the reset/shutdown timeouts
         if (key === 'o') return
 
+        // Lock all input while wifi-connect is running
+        if (wifiConnectRunning) return
+
         if (shutdownTimeout) clearTimeout(shutdownTimeout)
         if (resetTimeout) clearTimeout(resetTimeout)
 
@@ -347,6 +380,9 @@ const setupKeyboardHandlers = (options: any) => {
 
         // 'o' is PRO key release
         if (key === 'o') return
+
+        // Lock all input while wifi-connect is running
+        if (wifiConnectRunning) return
 
         if (wsShutdownTimeout) clearTimeout(wsShutdownTimeout)
         if (wsResetTimeout) clearTimeout(wsResetTimeout)

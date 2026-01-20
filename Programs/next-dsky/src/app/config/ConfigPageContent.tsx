@@ -21,6 +21,7 @@ interface ConfigState {
     resetDisabled?: boolean
     textInput?: string
     wifiConnectAvailable?: boolean
+    wifiConnectRunning?: boolean
 }
 
 export default function ConfigPageContent() {
@@ -117,6 +118,12 @@ export default function ConfigPageContent() {
             if (!ws || ws.readyState !== WebSocket.OPEN) return
             if (event.repeat) return
 
+            // Lock input while wifi-connect is running
+            if (configState?.wifiConnectRunning) {
+                event.preventDefault()
+                return
+            }
+
             // Skip keyboard handling when in text input mode
             // The input field handles its own events
             if (configState?.step === 'manualUrl') {
@@ -172,6 +179,7 @@ export default function ConfigPageContent() {
     }
 
     const handleAction = (action: string) => {
+        if (configState?.wifiConnectRunning) return
         switch (action) {
             case 'next':
                 sendConfigMessage('config:next')
@@ -195,6 +203,7 @@ export default function ConfigPageContent() {
     }
 
     const handleReset = () => {
+        if (configState?.wifiConnectRunning) return
         const ws = wsRef.current
         if (ws && ws.readyState === WebSocket.OPEN) {
             // Reset tracking so we navigate to main page when config completes
@@ -204,6 +213,7 @@ export default function ConfigPageContent() {
     }
 
     const handleTextChange = (text: string) => {
+        if (configState?.wifiConnectRunning) return
         sendConfigMessage('config:text-input', { text })
     }
 
@@ -233,6 +243,12 @@ export default function ConfigPageContent() {
             <main className="flex min-h-screen flex-col items-center justify-center bg-black text-green-500 font-mono p-8">
                 <div className="max-w-md w-full space-y-6">
                     <h1 className="text-2xl font-bold text-center mb-8">Current Configuration</h1>
+
+                    {configState.wifiConnectRunning && (
+                        <div className="bg-blue-900/40 border border-blue-700 text-blue-200 p-4 rounded-lg text-center">
+                            WiFi setup running… waiting for wifi-connect to finish.
+                        </div>
+                    )}
                     
                     <div className="space-y-4 bg-gray-900 p-6 rounded-lg">
                         <div className="flex justify-between">
@@ -261,6 +277,7 @@ export default function ConfigPageContent() {
                         <button
                             onClick={handleBackToDsky}
                             className="w-full py-3 px-4 bg-green-700 hover:bg-green-600 text-white font-semibold rounded transition-colors"
+                            disabled={configState.wifiConnectRunning}
                         >
                             Back to DSKY
                         </button>
@@ -268,6 +285,7 @@ export default function ConfigPageContent() {
                             <button
                                 onClick={handleReset}
                                 className="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded transition-colors"
+                                disabled={configState.wifiConnectRunning}
                             >
                                 Reconfigure
                             </button>
@@ -276,6 +294,7 @@ export default function ConfigPageContent() {
                             <button
                                 onClick={handleWifiConnect}
                                 className="w-full py-3 px-4 bg-blue-700 hover:bg-blue-600 text-white font-semibold rounded transition-colors"
+                                disabled={configState.wifiConnectRunning}
                             >
                                 Configure WiFi
                             </button>
