@@ -53,7 +53,7 @@ function normalizeBrightness(
     value: number,
     originalMin: number,
     originalMax: number,
-    targetMin: number = 1,
+    targetMin: number = 0,
     targetMax: number = 127
 ): number {
     const normalized = ((value - originalMin) / (originalMax - originalMin)) * (targetMax - targetMin) + targetMin;

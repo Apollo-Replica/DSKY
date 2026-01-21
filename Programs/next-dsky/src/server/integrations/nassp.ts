@@ -100,9 +100,9 @@ export class NASSPIntegration extends AgcIntegration {
                     Register3D4: r3[4].replace(' ', ''),
                     Register3D5: r3[5].replace(' ', ''),
                     Standby: !ELPowered,
-                    StatusBrightness: Math.max(Math.floor(parseFloat(anun) * 127), 1),
-                    DisplayBrightness: Math.max(Math.floor(parseFloat(numerics) * 127), 1),
-                    KeyboardBrightness: Math.max(Math.floor(parseFloat(integral) * 127), 1)
+                    StatusBrightness: Math.max(Math.floor(parseFloat(anun) * 127), 0),
+                    DisplayBrightness: Math.max(Math.floor(parseFloat(numerics) * 127), 0),
+                    KeyboardBrightness: Math.max(Math.floor(parseFloat(integral) * 127), 0)
                 }
                 this.emitState(state)
             }
