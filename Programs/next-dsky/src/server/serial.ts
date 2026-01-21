@@ -158,6 +158,11 @@ const binaryStringToBuffer = (bits: string): Buffer => {
     return Buffer.from(numberArray)
 }
 
+// Debug helper to format buffer as hex
+const bufferToHex = (buffer: Buffer): string => {
+    return Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ')
+}
+
 let serial: SerialPort | null = null
 let state = V35_TEST
 let isWriting = false
@@ -203,6 +208,25 @@ export const updateSerialState = (newState: any, force = false) => {
     if (force || stateToBinaryString(state) != newPacket) {
         state = newState
         const serialPacket = binaryStringToBuffer(newPacket)
+
+        // Debug: Log the state and packet being sent
+        console.log('[Serial] State update:', JSON.stringify({
+            prog: `${newState.ProgramD1}${newState.ProgramD2}`,
+            verb: `${newState.VerbD1}${newState.VerbD2}`,
+            noun: `${newState.NounD1}${newState.NounD2}`,
+            r1: `${newState.Register1Sign}${newState.Register1D1}${newState.Register1D2}${newState.Register1D3}${newState.Register1D4}${newState.Register1D5}`,
+            r2: `${newState.Register2Sign}${newState.Register2D1}${newState.Register2D2}${newState.Register2D3}${newState.Register2D4}${newState.Register2D5}`,
+            r3: `${newState.Register3Sign}${newState.Register3D1}${newState.Register3D2}${newState.Register3D3}${newState.Register3D4}${newState.Register3D5}`,
+            lights: {
+                comp: newState.IlluminateCompLight,
+                uplink: newState.IlluminateUplinkActy,
+                noAtt: newState.IlluminateNoAtt,
+                stby: newState.IlluminateStby,
+            },
+            brightness: { status: newState.StatusBrightness, keyboard: newState.KeyboardBrightness }
+        }))
+        console.log('[Serial] Packet hex:', bufferToHex(serialPacket))
+
         writeToSerial(serialPacket)
     }
 }

@@ -51,9 +51,11 @@ export class BridgeIntegration extends AgcIntegration {
 
         this.ws.on('message', (data: WebSocket.Data) => {
             try {
-                this.emitState(JSON.parse(data.toString()))
+                const state = JSON.parse(data.toString())
+                console.log('[Bridge] Received state:', JSON.stringify(state, null, 2))
+                this.emitState(state)
             } catch (e) {
-                // Ignore non-JSON messages
+                console.error('[Bridge] Failed to parse message:', data.toString().substring(0, 200))
             }
         })
 
