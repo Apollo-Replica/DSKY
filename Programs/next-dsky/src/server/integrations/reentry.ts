@@ -63,11 +63,13 @@ function normalizeBrightness(
 export class ReentryIntegration extends AgcIntegration {
     readonly name = 'Reentry'
     readonly id = 'reentry'
-    
+
     private inputServer = dgram.createSocket('udp4')
     private state: any = { ...OFF_TEST }
     private agcHandle: { cancel: () => void } | null = null
     private lgcHandle: { cancel: () => void } | null = null
+    private agcDebounceTimer: ReturnType<typeof setTimeout> | null = null
+    private lgcDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
     async handleKey(key: string): Promise<void> {
         try {
@@ -95,23 +97,33 @@ export class ReentryIntegration extends AgcIntegration {
         console.log(`[Reentry] Watching AGC: ${AGC_PATH}`)
         console.log(`[Reentry] Watching LGC: ${LGC_PATH}`)
 
-        // Watch AGC state for changes
+        // Watch AGC state for changes (debounced to avoid reading while file is being written)
         this.agcHandle = createWatcher(AGC_PATH, () => {
-            this.handleStateUpdate(AGC_PATH, (state) => state.IsInCM)
+            if (this.agcDebounceTimer) clearTimeout(this.agcDebounceTimer)
+            this.agcDebounceTimer = setTimeout(() => {
+                this.handleStateUpdate(AGC_PATH, (state) => state.IsInCM)
+            }, 50)
         })
 
-        // Watch LGC state for changes
+        // Watch LGC state for changes (debounced to avoid reading while file is being written)
         this.lgcHandle = createWatcher(LGC_PATH, () => {
-            this.handleStateUpdate(LGC_PATH, (state) => state.IsInLM)
+            if (this.lgcDebounceTimer) clearTimeout(this.lgcDebounceTimer)
+            this.lgcDebounceTimer = setTimeout(() => {
+                this.handleStateUpdate(LGC_PATH, (state) => state.IsInLM)
+            }, 50)
         })
     }
 
     protected onStop(): void {
         console.log('[Reentry] Closing file watchers')
+        if (this.agcDebounceTimer) clearTimeout(this.agcDebounceTimer)
+        if (this.lgcDebounceTimer) clearTimeout(this.lgcDebounceTimer)
         this.agcHandle?.cancel()
         this.lgcHandle?.cancel()
         this.agcHandle = null
         this.lgcHandle = null
+        this.agcDebounceTimer = null
+        this.lgcDebounceTimer = null
     }
 
     private handleStateUpdate(path: string, condition: (state: any) => boolean): void {

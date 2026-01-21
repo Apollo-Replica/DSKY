@@ -160,22 +160,50 @@ const binaryStringToBuffer = (bits: string): Buffer => {
 
 let serial: SerialPort | null = null
 let state = V35_TEST
+let isWriting = false
+let pendingPacket: Buffer | null = null
 
 let listener: (data: Buffer) => Promise<void> = async (_data) => {}
 export const setSerialListener = (newListener: (data: Buffer) => Promise<void>) => { listener = newListener }
+
+const writeToSerial = (packet: Buffer) => {
+    if (!serial) return
+
+    if (isWriting) {
+        // Queue the latest packet - older pending packets are discarded
+        pendingPacket = packet
+        return
+    }
+
+    isWriting = true
+    serial.write(packet, (err) => {
+        if (err) {
+            console.error('[Serial] Write failed:', err)
+            isWriting = false
+            return
+        }
+        // Wait for data to be fully transmitted
+        serial?.drain((drainErr) => {
+            isWriting = false
+            if (drainErr) {
+                console.error('[Serial] Drain failed:', drainErr)
+            }
+            // Send any pending packet
+            if (pendingPacket) {
+                const nextPacket = pendingPacket
+                pendingPacket = null
+                writeToSerial(nextPacket)
+            }
+        })
+    })
+}
 
 export const updateSerialState = (newState: any, force = false) => {
     const newPacket = stateToBinaryString(newState)
     if (force || stateToBinaryString(state) != newPacket) {
         state = newState
         const serialPacket = binaryStringToBuffer(newPacket)
-        if (serial) {
-            serial.write(serialPacket, (err) => {
-                if (err) {
-                    console.error('[Serial] Write failed:', err)
-                }
-            })
-        }
+        writeToSerial(serialPacket)
     }
 }
 
@@ -199,6 +227,8 @@ const attachSerialHandlers = (port: SerialPort) => {
         console.log('[Serial] Connection lost!')
         if (serial === port) {
             serial = null
+            isWriting = false
+            pendingPacket = null
         }
     })
 
@@ -230,6 +260,8 @@ const openSerial = async (serialPath: string, baudRate = '9600'): Promise<Serial
     // Swap in the new port and close the previous one.
     const previous = serial
     serial = next
+    isWriting = false
+    pendingPacket = null
 
     if (previous) {
         console.log('[Serial] Closing previous connection')
