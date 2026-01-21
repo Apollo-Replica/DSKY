@@ -232,8 +232,8 @@ function HomeContent() {
     }
   }, [])
 
-  const opacityEL = dskyState.Standby ? 0 : (dskyState.DisplayBrightness || 127) / 127
-  const opacityStatus = (dskyState.StatusBrightness || 127) / 127
+  const opacityEL = dskyState.Standby ? 0 : ((dskyState.DisplayBrightness || 127) - 1) / 126
+  const opacityStatus = ((dskyState.StatusBrightness || 127) - 1) / 126
   return (
     <main className={`flex min-h-screen flex-col items-center justify-between display-${displayType} oled-${oledMode} keyboard-${showKeyboard?1:0}`} >
       <Keyboard sendKey={sendKey} showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard} />

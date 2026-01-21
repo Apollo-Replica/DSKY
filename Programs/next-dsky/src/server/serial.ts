@@ -142,12 +142,12 @@ const stateToBinaryString = (state: any): string => {
             0, 0, 0, 0, 0, 0)
     ) // B13
     bits += decimalToByte(
-        // Only values from 1 to 127 will be sent
-        state.StatusBrightness ? Math.min(state.StatusBrightness, 127) : 127
+        // Serial protocol cannot send 0x00, so brightness range is 1-127 (1 = off)
+        Math.max(1, Math.min(state.StatusBrightness || 127, 127))
     ) // B14
     bits += decimalToByte(
-        // Only values from 1 to 127 will be sent
-        state.KeyboardBrightness ? Math.min(state.KeyboardBrightness, 127) : 127
+        // Serial protocol cannot send 0x00, so brightness range is 1-127 (1 = off)
+        Math.max(1, Math.min(state.KeyboardBrightness || 127, 127))
     ) // B15
     return bits
 }
