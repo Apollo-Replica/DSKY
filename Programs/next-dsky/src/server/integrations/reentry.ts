@@ -57,7 +57,7 @@ function normalizeBrightness(
     targetMax: number = 127
 ): number {
     const normalized = ((value - originalMin) / (originalMax - originalMin)) * (targetMax - targetMin) + targetMin;
-    return Math.min(Math.max(targetMin, normalized), targetMax)
+    return Math.round(Math.min(Math.max(targetMin, normalized), targetMax))
 }
 
 export class ReentryIntegration extends AgcIntegration {
