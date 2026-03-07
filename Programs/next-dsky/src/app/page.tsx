@@ -9,15 +9,13 @@ import ClientList from "./clientList";
 import Alarms from "./alarms";
 import ELDisplay from "./elDisplay";
 
-function HomeContent() {
+function HomeContent({ envOled, envDisplay }: { envOled: boolean, envDisplay: string }) {
   const searchParams = useSearchParams()
   const router = useRouter()
-  let oledMode = 'no'
-  if(process.env.OLED_MODE == '1') oledMode ='yes'
+  let oledMode = envOled ? 'yes' : 'no'
   if(searchParams.get('oled') == '1') oledMode = 'yes'
 
-  let displayType = 'default'
-  if(process.env.DISPLAY_TYPE) displayType = process.env.DISPLAY_TYPE
+  let displayType = envDisplay
   if(searchParams.get('display')) displayType = searchParams.get('display') as string
 
   const initialState = AUDIO_LOAD
@@ -247,7 +245,7 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={<main className="flex min-h-screen flex-col items-center justify-center bg-black text-green-500 font-mono"><div>Loading...</div></main>}>
-      <HomeContent />
+      <HomeContent envOled={process.env.OLED_MODE == '1'} envDisplay={process.env.DISPLAY_TYPE || 'default'} />
     </Suspense>
   );
 }
