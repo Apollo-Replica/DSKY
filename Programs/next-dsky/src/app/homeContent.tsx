@@ -8,6 +8,7 @@ import Keyboard from "./keyboard";
 import ClientList from "./clientList";
 import Alarms from "./alarms";
 import ELDisplay from "./elDisplay";
+import HelpPanel from "./helpPanel";
 
 export default function HomeContent({ envOled, envDisplay }: { envOled: boolean, envDisplay: string }) {
   const searchParams = useSearchParams()
@@ -24,6 +25,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   const [audioFiles, setAudioFiles] : any = useState(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [showKeyboard, setShowKeyboard] : any = useState(false)
+  const [configState, setConfigState] = useState<any>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
   const mountedRef = useRef(true)
@@ -144,6 +146,14 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
         return
       }
 
+      // Save config state for help panel (only when it changes meaningfully)
+      if (newState.config && newState.config.ready) {
+        setConfigState((prev: any) => {
+          if (prev?.inputSource === newState.config.inputSource) return prev
+          return newState.config
+        })
+      }
+
       const changedChunks = getChangedChunks(hookData.lastState,newState)
       const animatedStateUpdate = () =>{
         animationLock = Date.now() + (30 * changedChunks.length) + 30
@@ -238,6 +248,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       <ClientList clients={dskyState?.clients || []} />
       <Alarms dskyState={dskyState} opacity={opacityStatus} />
       <ELDisplay dskyState={dskyState} opacity={opacityEL} />
+      <HelpPanel config={configState} />
     </main>
   );
 }
