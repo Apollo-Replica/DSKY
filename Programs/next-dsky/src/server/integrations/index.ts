@@ -5,6 +5,7 @@ import { KSPIntegration } from './ksp'
 import { BridgeIntegration } from './bridge'
 import { YaAGCIntegration } from './yaAGC'
 import { RandomIntegration } from './random'
+import { HomeAssistantIntegration } from './homeassistant'
 import { ConfigIntegration } from './config'
 
 // Export the base class for type usage
@@ -17,6 +18,7 @@ export { KSPIntegration } from './ksp'
 export { BridgeIntegration } from './bridge'
 export { YaAGCIntegration } from './yaAGC'
 export { RandomIntegration } from './random'
+export { HomeAssistantIntegration } from './homeassistant'
 export { ConfigIntegration, type ConfigState, type ConfigResult, INPUT_SOURCES, YAAGC_VERSIONS } from './config'
 
 /**
@@ -31,6 +33,7 @@ const integrationRegistry: Record<string, new () => AgcIntegration> = {
     bridge: BridgeIntegration,
     yaagc: YaAGCIntegration,
     random: RandomIntegration,
+    homeassistant: HomeAssistantIntegration,
 }
 
 /**
