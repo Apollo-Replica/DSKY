@@ -2,33 +2,10 @@ import { SerialPort } from 'serialport'
 import * as os from 'os'
 import { AgcIntegration } from './AgcIntegration'
 import { V35_TEST } from '../../utils/dskyStates'
-import { DiscoveredAPI } from '../mdnsService'
+import { discoverEntities, generateNounMappings, persistNounMappings } from './homeassistant/entityDiscovery'
+import type { ConfigState, ConfigResult, DiscoveredAPI, NetworkInterfaceOption } from '../../types/config'
 
-export interface NetworkInterfaceOption {
-    name: string
-    ip: string
-}
-
-export interface ConfigState {
-    ready: boolean
-    step: 'network' | 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
-    stepNumber: number
-    serialPort: string | null
-    inputSource: string | null
-    bridgeUrl?: string
-    yaagcVersion?: string
-    networkInterface: string | null
-    availableInterfaces: NetworkInterfaceOption[]
-    availablePorts: Array<{path: string, name: string}>
-    discoveredApis: DiscoveredAPI[]
-    scanning: boolean
-    selectedIndex: number
-    options: string[]
-    resetDisabled?: boolean
-    textInput?: string
-    wifiConnectAvailable?: boolean
-    wifiConnectRunning?: boolean
-}
+export type { ConfigState, ConfigResult, DiscoveredAPI, DiscoveredEntity, NetworkInterfaceOption } from '../../types/config'
 
 export const INPUT_SOURCES = [
     {name: 'NASSP', value: 'nassp'},
@@ -36,6 +13,7 @@ export const INPUT_SOURCES = [
     {name: 'Bridge to another DSKY API', value: 'bridge'},
     {name: 'yaAGC', value: 'yaagc'},
     {name: 'KSP', value: 'ksp'},
+    {name: 'Home Assistant', value: 'homeassistant'},
     {name: 'Random Values', value: 'random'}
 ]
 
@@ -45,13 +23,6 @@ export const YAAGC_VERSIONS = [
     {name: 'Luminary210', value: 'Luminary210'},
     {name: 'Start my own YaAGC', value: 'own'}
 ]
-
-export interface ConfigResult {
-    inputSource: string
-    serialPort: string | null
-    bridgeUrl?: string
-    yaagcVersion?: string
-}
 
 export class ConfigIntegration extends AgcIntegration {
     readonly name = 'Config'
@@ -172,11 +143,15 @@ export class ConfigIntegration extends AgcIntegration {
             return
         }
         // Special handling for text input mode
-        if (this.configState.step === 'manualUrl') {
+        if (this.configState.step === 'manualUrl' || this.configState.step === 'haUrl' || this.configState.step === 'haToken') {
             await this.handleTextInput(key)
             return
         }
-
+        // haDiscover: only CLR (back), everything else is locked during discovery
+        if (this.configState.step === 'haDiscover') {
+            if (key === 'c') this.back()
+            return
+        }
         switch (key) {
             case '+':
             case 'v':
@@ -205,30 +180,68 @@ export class ConfigIntegration extends AgcIntegration {
 
     private async handleTextInput(key: string): Promise<void> {
         const currentInput = this.configState.textInput || ''
+        const { step } = this.configState
 
         if (key === 'e' || key === 'p') {
-            // Enter/confirm - validate and proceed
-            const url = currentInput.trim()
-            if (this.isValidWebSocketUrl(url)) {
-                this.updateConfig({
-                    bridgeUrl: url,
-                    step: 'confirm',
-                    selectedIndex: 0,
-                    options: this.buildOptionsForStep('confirm', this.configState)
-                })
+            // Enter/confirm
+            if (step === 'manualUrl') {
+                const url = currentInput.trim()
+                if (this.isValidWebSocketUrl(url)) {
+                    this.updateConfig({
+                        bridgeUrl: url,
+                        step: 'confirm',
+                        selectedIndex: 0,
+                        options: this.buildOptionsForStep('confirm', this.configState)
+                    })
+                }
+            } else if (step === 'haUrl') {
+                const url = currentInput.trim()
+                if (this.isValidHttpUrl(url)) {
+                    this.updateConfig({
+                        haUrl: url,
+                        step: 'haToken',
+                        textInput: process.env.HA_TOKEN || '',
+                        options: []
+                    })
+                }
+            } else if (step === 'haToken') {
+                const token = currentInput.trim()
+                if (token.length > 0) {
+                    this.updateConfig({
+                        haToken: token,
+                        step: 'haDiscover',
+                        textInput: '',
+                        options: []
+                    })
+                    await this.discoverHAEntities()
+                }
             }
-            // If invalid, stay on manualUrl step (user can keep editing)
             return
         }
 
         if (key === 'c') {
-            // Cancel/back - go back to bridge selection
-            this.updateConfig({
-                step: 'bridge',
-                selectedIndex: 0,
-                textInput: '',
-                options: this.buildOptionsForStep('bridge', this.configState)
-            })
+            // Cancel/back
+            if (step === 'manualUrl') {
+                this.updateConfig({
+                    step: 'bridge',
+                    selectedIndex: 0,
+                    textInput: '',
+                    options: this.buildOptionsForStep('bridge', this.configState)
+                })
+            } else if (step === 'haUrl') {
+                this.updateConfig({
+                    step: 'haSetup',
+                    selectedIndex: 0,
+                    textInput: '',
+                    options: this.buildOptionsForStep('haSetup', this.configState)
+                })
+            } else if (step === 'haToken') {
+                this.updateConfig({
+                    step: 'haUrl',
+                    textInput: this.configState.haUrl || process.env.HA_URL || 'http://',
+                    options: []
+                })
+            }
             return
         }
 
@@ -253,13 +266,107 @@ export class ConfigIntegration extends AgcIntegration {
         }
     }
 
+    private isValidHttpUrl(url: string): boolean {
+        try {
+            const parsed = new URL(url)
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+        } catch {
+            return false
+        }
+    }
+
+    private async discoverHAEntities(): Promise<void> {
+        const { haUrl, haToken } = this.configState
+        if (!haUrl || !haToken) return
+
+        try {
+            console.log(`[Config] Discovering HA entities at ${haUrl}`)
+            const entities = await discoverEntities(haUrl, haToken)
+            console.log(`[Config] Found ${entities.length} entities`)
+            this.updateConfig({
+                haEntities: entities,
+                haSelectedEntityIds: entities.map(e => e.entity_id), // all selected by default
+                haDiscoverError: undefined,
+                step: 'haEntities',
+                selectedIndex: 0,
+                options: this.buildOptionsForStep('haEntities', {
+                    ...this.configState,
+                    haEntities: entities,
+                    haSelectedEntityIds: entities.map(e => e.entity_id)
+                })
+            })
+        } catch (err: any) {
+            console.error('[Config] HA entity discovery failed:', err?.message || err)
+            this.updateConfig({
+                haDiscoverError: err?.message || 'Connection failed',
+                step: 'haDiscover',
+                options: []
+            })
+        }
+    }
+
+    private async haEntitiesDone(): Promise<void> {
+        const { haSelectedEntityIds, haEntities } = this.configState
+        if (!haSelectedEntityIds || !haEntities || haSelectedEntityIds.length === 0) return
+
+        // Generate and persist noun mappings (including URL + token for auto-start on reboot)
+        const nouns = generateNounMappings(haSelectedEntityIds, haEntities)
+        persistNounMappings(nouns, this.configState.haUrl, this.configState.haToken)
+
+        this.updateConfig({
+            step: 'confirm',
+            selectedIndex: 0,
+            options: this.buildOptionsForStep('confirm', this.configState)
+        })
+    }
+
     /**
      * Handle text input from WebSocket (for web UI)
      */
     handleTextInputFromWeb(text: string): void {
         if (this.configState.wifiConnectRunning) return
-        if (this.configState.step === 'manualUrl') {
+        if (this.configState.step === 'manualUrl' || this.configState.step === 'haUrl' || this.configState.step === 'haToken') {
             this.updateConfig({ textInput: text })
+        }
+    }
+
+    /**
+     * Toggle entity selection (called from web UI click on entity row)
+     */
+    toggleHaEntity(index: number): void {
+        if (this.configState.step !== 'haEntities') return
+        const entities = this.configState.haEntities || []
+        const selected = [...(this.configState.haSelectedEntityIds || [])]
+
+        if (index === 0) {
+            // Toggle all
+            const allSelected = entities.every(e => selected.includes(e.entity_id))
+            const newSelected = allSelected ? [] : entities.map(e => e.entity_id)
+            this.updateConfig({
+                haSelectedEntityIds: newSelected,
+                options: this.buildOptionsForStep('haEntities', {
+                    ...this.configState,
+                    haSelectedEntityIds: newSelected
+                })
+            })
+        } else {
+            // Toggle individual entity (index 1..N maps to entities[0..N-1])
+            const entity = entities[index - 1]
+            if (entity) {
+                const idx = selected.indexOf(entity.entity_id)
+                if (idx >= 0) {
+                    selected.splice(idx, 1)
+                } else {
+                    selected.push(entity.entity_id)
+                }
+                this.updateConfig({
+                    haSelectedEntityIds: selected,
+                    options: this.buildOptionsForStep('haEntities', {
+                        ...this.configState,
+                        haSelectedEntityIds: selected
+                    })
+                })
+            }
         }
     }
 
@@ -427,6 +534,20 @@ export class ConfigIntegration extends AgcIntegration {
                 ]
             case 'yaagc':
                 return YAAGC_VERSIONS.map(v => v.name)
+            case 'haSetup':
+                return ['Continue on this device']
+            case 'haEntities': {
+                const entities = state.haEntities || []
+                const selected = state.haSelectedEntityIds || []
+                const allSelected = entities.length > 0 && entities.every(e => selected.includes(e.entity_id))
+                return [
+                    allSelected ? 'Deselect all' : 'Select all',
+                    ...entities.map(e => {
+                        const check = selected.includes(e.entity_id) ? '\u2611' : '\u2610'
+                        return `${check} ${e.friendly_name} (${e.domain})`
+                    }),
+                ]
+            }
             case 'confirm':
                 return ['Confirm', 'Back to start']
             default:
@@ -528,6 +649,14 @@ export class ConfigIntegration extends AgcIntegration {
                         this.onScanRequest()
                     }
                     return
+                } else if (source.value === 'homeassistant') {
+                    this.updateConfig({
+                        step: 'haSetup',
+                        selectedIndex: 0,
+                        options: this.buildOptionsForStep('haSetup', this.configState),
+                        localUrl: this.computeLocalUrl()
+                    })
+                    return
                 } else if (source.value === 'yaagc') {
                     this.updateConfig({
                         step: 'yaagc',
@@ -594,6 +723,25 @@ export class ConfigIntegration extends AgcIntegration {
                 return
             }
 
+            case 'haSetup': {
+                // Continue to URL entry
+                this.updateConfig({
+                    step: 'haUrl',
+                    textInput: process.env.HA_URL || 'http://',
+                    options: []
+                })
+                return
+            }
+
+            case 'haEntities': {
+                // Select = confirm and advance
+                const selected = this.configState.haSelectedEntityIds || []
+                if (selected.length > 0) {
+                    await this.haEntitiesDone()
+                }
+                return
+            }
+
             case 'yaagc': {
                 const version = YAAGC_VERSIONS[selectedIndex]
                 this.updateConfig({
@@ -620,7 +768,11 @@ export class ConfigIntegration extends AgcIntegration {
                             inputSource: this.configState.inputSource!,
                             serialPort: this.configState.serialPort,
                             bridgeUrl: this.configState.bridgeUrl,
-                            yaagcVersion: this.configState.yaagcVersion
+                            yaagcVersion: this.configState.yaagcVersion,
+                            haUrl: this.configState.haUrl,
+                            haToken: this.configState.haToken,
+                            haEntities: this.configState.haEntities,
+                            haSelectedEntityIds: this.configState.haSelectedEntityIds
                         })
                     } catch (err) {
                         console.error('[Config] Failed to start selected integration:', err)
@@ -677,9 +829,40 @@ export class ConfigIntegration extends AgcIntegration {
                     options: this.buildOptionsForStep('bridge', this.configState)
                 })
                 break
+            case 'haSetup':
+                this.updateConfig({
+                    step: 'source',
+                    selectedIndex: 0,
+                    options: this.buildOptionsForStep('source', this.configState)
+                })
+                break
+            case 'haUrl':
+                this.updateConfig({
+                    step: 'haSetup',
+                    selectedIndex: 0,
+                    textInput: '',
+                    options: this.buildOptionsForStep('haSetup', this.configState)
+                })
+                break
+            case 'haToken':
+                this.updateConfig({
+                    step: 'haUrl',
+                    textInput: this.configState.haUrl || process.env.HA_URL || 'http://',
+                    options: []
+                })
+                break
+            case 'haDiscover':
+            case 'haEntities':
+                this.updateConfig({
+                    step: 'haToken',
+                    textInput: this.configState.haToken || process.env.HA_TOKEN || '',
+                    options: []
+                })
+                break
             case 'confirm':
                 const prevStep = this.configState.inputSource === 'bridge' ? 'bridge'
                     : this.configState.inputSource === 'yaagc' ? 'yaagc'
+                    : this.configState.inputSource === 'homeassistant' ? 'haEntities'
                     : 'source'
                 this.updateConfig({
                     step: prevStep as ConfigState['step'],
@@ -713,10 +896,35 @@ export class ConfigIntegration extends AgcIntegration {
             case 'bridge':
             case 'manualUrl':
             case 'yaagc':
+            case 'haSetup':
                 return base + networkOffset + serialOffset + 1
+            case 'haUrl':
+                return base + networkOffset + serialOffset + 2
+            case 'haToken':
+                return base + networkOffset + serialOffset + 3
+            case 'haDiscover':
+            case 'haEntities':
+                return base + networkOffset + serialOffset + 4
             case 'confirm':
+                if (state.inputSource === 'homeassistant') {
+                    return base + networkOffset + serialOffset + 5
+                }
                 return base + networkOffset + serialOffset + 2
         }
+    }
+
+    private computeLocalUrl(): string {
+        // Find the first LAN IP address to show the user
+        const ifaces = os.networkInterfaces()
+        for (const entries of Object.values(ifaces)) {
+            for (const entry of entries || []) {
+                if (entry.family !== 'IPv4' || entry.internal) continue
+                if (entry.address.startsWith('169.254.')) continue
+                // Use port 3000 as default; in production the server runs on this port
+                return `http://${entry.address}:3000/config`
+            }
+        }
+        return 'http://localhost:3000/config'
     }
 
     private detectNetworkInterfaces(): NetworkInterfaceOption[] {

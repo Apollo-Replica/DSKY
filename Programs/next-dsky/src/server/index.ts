@@ -126,6 +126,12 @@ const startSelectedIntegration = async (config: ConfigResult) => {
     if (config.bridgeUrl) {
         integrationOptions.bridgeUrl = config.bridgeUrl
     }
+    if (config.haUrl) {
+        integrationOptions.haUrl = config.haUrl
+    }
+    if (config.haToken) {
+        integrationOptions.haToken = config.haToken
+    }
 
     // Get and start the selected integration
     activeIntegration = getIntegration(config.inputSource)
@@ -142,6 +148,9 @@ const startSelectedIntegration = async (config: ConfigResult) => {
         inputSource: config.inputSource,
         bridgeUrl: config.bridgeUrl,
         yaagcVersion: config.yaagcVersion,
+        haUrl: config.haUrl,
+        haEntities: config.haEntities,
+        haSelectedEntityIds: config.haSelectedEntityIds,
         networkInterface: null,
         availableInterfaces: [],
         availablePorts: [],
@@ -300,6 +309,16 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                     configIntegration.handleTextInputFromWeb(data.text)
                 }
                 break
+            case 'config:done':
+                // Confirm entity selection
+                await configIntegration.handleKey('e')
+                break
+            case 'config:toggle':
+                // Toggle entity in haEntities step (web UI click)
+                if (data?.index !== undefined) {
+                    configIntegration.toggleHaEntity(data.index)
+                }
+                break
         }
     })
 
@@ -311,9 +330,22 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             serialPort: options.serial || null
         })
     } else {
-        // Initialize config mode
-        console.log('[Server] Starting in config mode')
-        await startConfigMode()
+        // Check for persisted Home Assistant config (auto-start on reboot)
+        const { hasPersistedConfig, loadPersistedConfig } = await import('./integrations/homeassistant/settings')
+        if (hasPersistedConfig()) {
+            console.log('[Server] Found persisted HA config, auto-starting Home Assistant')
+            const persisted = loadPersistedConfig()
+            await startSelectedIntegration({
+                inputSource: 'homeassistant',
+                serialPort: options.serial || null,
+                haEntities: persisted.entities,
+                haSelectedEntityIds: persisted.selectedEntityIds,
+            })
+        } else {
+            // Initialize config mode
+            console.log('[Server] Starting in config mode')
+            await startConfigMode()
+        }
     }
 
     // Set up keyboard handlers for Serial and WebSocket
