@@ -31,19 +31,17 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
       3. Set the ``-DOSC_CAL=0xNN`` flag in ``platformio.ini`` with your value
       4. Flash the ``bare`` environment with your calibrated firmware
   - Set up the Orange Pi:
-    - See the [Orange Pi setup guide](Documentation/orangepi-setup.md) (coming soon).
+    - See the [Orange Pi setup guide](Documentation/orangepi-setup.md).
     - Pre-built .img files have been shared around the community, but they are not recommended as they may be out of date.
   - Make sure you have NodeJS > 18
   - Run start.bat on your PC to launch the web display
 
 ## Repository contents:
 * **Documentation**: Useful information to better understand how the different pieces of the puzzle talk to each other
+* **2D Models**: SVG files for alarm labels and backlights.
 * **3D Models**:
-  * **Common:** Meshes you need to print regardless of what display you use.
-  * **LCD-OLED:** Display-specific meshes for the LCD and OLED screen variants.
-  * **Keys (FDM):** Multi-color FDM key models.
-  * **Keys (SLA):** Key shells and cores for SLA printing (discouraged).
-  * **2D:** SVG files for alarm labels and backlights.
+  * **0.4 Nozzle:** All printable meshes (enclosure, display housing, keyboard plate, mounts, etc.) designed for a standard 0.4mm nozzle.
+  * **Keys (0.2 Nozzle + AMS).3mf:** Multi-color key models for a 0.2mm nozzle with AMS.
   * **DSKY.7z:** Compressed assembly file in Autodesk Fusion format and STEP file.
 * **Firmware:** PlatformIO project containing the firmware for the bare ATmega328P on the PCB. Includes OSCCAL calibration tooling.
 * **Programs:**
