@@ -9,14 +9,8 @@ const SERVICE_TYPE = 'dsky'
 const SERVICE_PROTOCOL = 'tcp'
 const DEFAULT_WS_PATH = '/ws'
 
-export interface DiscoveredAPI {
-    ip: string
-    port: number
-    url: string
-    name?: string
-    version?: string
-    mode?: string
-}
+import type { DiscoveredAPI } from '../types/config'
+export type { DiscoveredAPI }
 
 interface MDNSServiceOptions {
     port: number

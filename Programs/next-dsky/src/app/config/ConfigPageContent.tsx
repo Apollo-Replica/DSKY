@@ -3,26 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import ConfigDisplay from "./ConfigDisplay"
-
-interface ConfigState {
-    ready: boolean
-    step: 'network' | 'serial' | 'source' | 'bridge' | 'manualUrl' | 'yaagc' | 'confirm'
-    stepNumber?: number
-    serialPort: string | null
-    inputSource: string | null
-    bridgeUrl?: string
-    yaagcVersion?: string
-    networkInterface?: string | null
-    availablePorts: Array<{ path: string, name: string }>
-    discoveredApis: Array<{ ip: string, port: number, url: string, name?: string }>
-    scanning: boolean
-    selectedIndex: number
-    options: string[]
-    resetDisabled?: boolean
-    textInput?: string
-    wifiConnectAvailable?: boolean
-    wifiConnectRunning?: boolean
-}
+import type { ConfigState } from "../../types/config"
 
 export default function ConfigPageContent() {
     const router = useRouter()
@@ -126,7 +107,7 @@ export default function ConfigPageContent() {
 
             // Skip keyboard handling when in text input mode
             // The input field handles its own events
-            if (configState?.step === 'manualUrl') {
+            if (configState?.step === 'manualUrl' || configState?.step === 'haUrl' || configState?.step === 'haToken') {
                 // Only handle Escape to go back
                 if (event.key === 'Escape') {
                     sendConfigMessage('config:back')
@@ -199,6 +180,9 @@ export default function ConfigPageContent() {
             case 'scan':
                 sendConfigMessage('config:scan-apis')
                 break
+            case 'done':
+                sendConfigMessage('config:done')
+                break
         }
     }
 
@@ -219,6 +203,11 @@ export default function ConfigPageContent() {
 
     const handleBackToDsky = () => {
         router.push('/')
+    }
+
+    const handleToggleEntity = (index: number) => {
+        if (configState?.wifiConnectRunning) return
+        sendConfigMessage('config:toggle', { index })
     }
 
     const handleWifiConnect = () => {
@@ -311,6 +300,7 @@ export default function ConfigPageContent() {
                 config={configState}
                 onAction={handleAction}
                 onTextChange={handleTextChange}
+                onToggleEntity={handleToggleEntity}
                 onWifiConnect={configState?.wifiConnectAvailable ? handleWifiConnect : undefined}
             />
         </main>
