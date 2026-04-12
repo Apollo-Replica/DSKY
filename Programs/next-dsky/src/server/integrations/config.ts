@@ -7,15 +7,17 @@ import type { ConfigState, ConfigResult, DiscoveredAPI, NetworkInterfaceOption }
 
 export type { ConfigState, ConfigResult, DiscoveredAPI, DiscoveredEntity, NetworkInterfaceOption } from '../../types/config'
 
-export const INPUT_SOURCES = [
-    {name: 'NASSP', value: 'nassp'},
-    {name: 'Reentry', value: 'reentry'},
-    {name: 'Bridge to another DSKY API', value: 'bridge'},
-    {name: 'yaAGC', value: 'yaagc'},
-    {name: 'KSP', value: 'ksp'},
-    {name: 'Home Assistant', value: 'homeassistant'},
-    {name: 'Random Values', value: 'random'}
-]
+export function getInputSources() {
+    return [
+        {name: 'NASSP', value: 'nassp'},
+        {name: 'Reentry', value: 'reentry'},
+        {name: 'Bridge to another DSKY API', value: 'bridge'},
+        {name: 'yaAGC', value: 'yaagc'},
+        {name: 'KSP', value: 'ksp'},
+        ...(process.env.DSKY_HOMEASSISTANT === '1' ? [{name: 'Home Assistant', value: 'homeassistant'}] : []),
+        {name: 'Random Values', value: 'random'}
+    ]
+}
 
 export const YAAGC_VERSIONS = [
     {name: 'Comanche055', value: 'Comanche055'},
@@ -524,7 +526,7 @@ export class ConfigIntegration extends AgcIntegration {
                     'Refresh List'
                 ]
             case 'source':
-                return INPUT_SOURCES.map(s => s.name)
+                return getInputSources().map(s => s.name)
             case 'bridge':
                 return [
                     'Public (dsky.ortizma.com)',
@@ -634,7 +636,7 @@ export class ConfigIntegration extends AgcIntegration {
             }
 
             case 'source': {
-                const source = INPUT_SOURCES[selectedIndex]
+                const source = getInputSources()[selectedIndex]
                 this.updateConfig({ inputSource: source.value })
 
                 if (source.value === 'bridge') {

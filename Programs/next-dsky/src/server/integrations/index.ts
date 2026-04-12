@@ -19,21 +19,24 @@ export { BridgeIntegration } from './bridge'
 export { YaAGCIntegration } from './yaAGC'
 export { RandomIntegration } from './random'
 export { HomeAssistantIntegration } from './homeassistant'
-export { ConfigIntegration, type ConfigState, type ConfigResult, INPUT_SOURCES, YAAGC_VERSIONS } from './config'
+export { ConfigIntegration, type ConfigState, type ConfigResult, getInputSources, YAAGC_VERSIONS } from './config'
 
 /**
  * Registry of all available AGC integrations.
  * Maps integration ID to its class constructor.
+ * Built as a function so env vars (loaded by dotenv at startup) are read at call time.
  */
-const integrationRegistry: Record<string, new () => AgcIntegration> = {
-    config: ConfigIntegration,
-    reentry: ReentryIntegration,
-    nassp: NASSPIntegration,
-    ksp: KSPIntegration,
-    bridge: BridgeIntegration,
-    yaagc: YaAGCIntegration,
-    random: RandomIntegration,
-    homeassistant: HomeAssistantIntegration,
+function getRegistry(): Record<string, new () => AgcIntegration> {
+    return {
+        config: ConfigIntegration,
+        reentry: ReentryIntegration,
+        nassp: NASSPIntegration,
+        ksp: KSPIntegration,
+        bridge: BridgeIntegration,
+        yaagc: YaAGCIntegration,
+        random: RandomIntegration,
+        ...(process.env.DSKY_HOMEASSISTANT === '1' ? { homeassistant: HomeAssistantIntegration } : {}),
+    }
 }
 
 /**
@@ -42,7 +45,7 @@ const integrationRegistry: Record<string, new () => AgcIntegration> = {
  * @returns A new instance of the requested integration, or RandomIntegration if not found
  */
 export function getIntegration(id: string): AgcIntegration {
-    const IntegrationClass = integrationRegistry[id]
+    const IntegrationClass = getRegistry()[id]
     if (IntegrationClass) {
         return new IntegrationClass()
     }
@@ -54,12 +57,12 @@ export function getIntegration(id: string): AgcIntegration {
  * Get a list of all available integration IDs.
  */
 export function getAvailableIntegrations(): string[] {
-    return Object.keys(integrationRegistry)
+    return Object.keys(getRegistry())
 }
 
 /**
  * Check if an integration ID is valid.
  */
 export function isValidIntegration(id: string): boolean {
-    return id in integrationRegistry
+    return id in getRegistry()
 }

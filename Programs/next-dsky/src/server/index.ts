@@ -332,7 +332,7 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     } else {
         // Check for persisted Home Assistant config (auto-start on reboot)
         const { hasPersistedConfig, loadPersistedConfig } = await import('./integrations/homeassistant/settings')
-        if (hasPersistedConfig()) {
+        if (process.env.DSKY_HOMEASSISTANT === '1' && hasPersistedConfig()) {
             console.log('[Server] Found persisted HA config, auto-starting Home Assistant')
             const persisted = loadPersistedConfig()
             await startSelectedIntegration({
