@@ -352,16 +352,15 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     setupKeyboardHandlers(options)
 }
 
-const setupKeyboardHandlers = (options: any) => {
-    // Serial keyboard handler
+function createKeyHandler(label: string, options: { shutdown?: string }) {
     let plusCount = 0
     let minusCount = 0
     let shutdownTimeout: ReturnType<typeof setTimeout> | undefined
     let resetTimeout: ReturnType<typeof setTimeout> | undefined
 
-    setSerialListener(async (data) => {
+    return async (data: Buffer | string) => {
         const key = data.toString().toLowerCase().substring(0, 1)
-        console.log(`[Serial] KeyPress: ${key}`)
+        console.log(`[${label}] KeyPress: ${key}`)
 
         // 'o' is PRO key release - don't let it cancel the reset/shutdown timeouts
         if (key === 'o') return
@@ -376,14 +375,14 @@ const setupKeyboardHandlers = (options: any) => {
 
         // Three '-' presses & holding PRO for 3 seconds runs the shutdown handler (if any)
         if (key === 'p' && minusCount >= 3 && options.shutdown) {
-            shutdownTimeout = setTimeout(() => exec(options.shutdown), 3000)
+            shutdownTimeout = setTimeout(() => exec(options.shutdown!), 3000)
             return
         }
 
         // Three '+' presses & holding PRO for 3 seconds resets to config mode
         if (key === 'p' && plusCount >= 3 && !isInConfig && process.env.DISABLE_RESET !== '1') {
             resetTimeout = setTimeout(() => {
-                console.log('[Server] PRO+++ detected via Serial')
+                console.log(`[Server] PRO+++ detected via ${label}`)
                 performReset()
             }, 3000)
             return
@@ -398,52 +397,10 @@ const setupKeyboardHandlers = (options: any) => {
         if (activeIntegration) {
             await activeIntegration.handleKey(key)
         }
-    })
+    }
+}
 
-    // WebSocket keyboard handler
-    let wsPlusCount = 0
-    let wsMinusCount = 0
-    let wsShutdownTimeout: ReturnType<typeof setTimeout> | undefined
-    let wsResetTimeout: ReturnType<typeof setTimeout> | undefined
-
-    setWebSocketListener(async (data) => {
-        const key = data.toString().toLowerCase().substring(0, 1)
-        console.log(`[WS] KeyPress: ${key}`)
-
-        // 'o' is PRO key release
-        if (key === 'o') return
-
-        // Lock all input while wifi-connect is running
-        if (wifiConnectRunning) return
-
-        if (wsShutdownTimeout) clearTimeout(wsShutdownTimeout)
-        if (wsResetTimeout) clearTimeout(wsResetTimeout)
-
-        const isInConfig = configIntegration !== null
-
-        // Three '-' presses & holding PRO for 3 seconds runs the shutdown handler
-        if (key === 'p' && wsMinusCount >= 3 && options.shutdown) {
-            wsShutdownTimeout = setTimeout(() => exec(options.shutdown), 3000)
-            return
-        }
-
-        // Three '+' presses & holding PRO for 3 seconds resets to config mode
-        if (key === 'p' && wsPlusCount >= 3 && !isInConfig && process.env.DISABLE_RESET !== '1') {
-            wsResetTimeout = setTimeout(() => {
-                console.log('[Server] PRO+++ detected via WebSocket')
-                performReset()
-            }, 3000)
-            return
-        }
-
-        if (key === '+') wsPlusCount++
-        else wsPlusCount = 0
-        if (key === '-') wsMinusCount++
-        else wsMinusCount = 0
-
-        // Route to active integration
-        if (activeIntegration) {
-            await activeIntegration.handleKey(key)
-        }
-    })
+const setupKeyboardHandlers = (options: { shutdown?: string }) => {
+    setSerialListener(createKeyHandler('Serial', options))
+    setWebSocketListener(createKeyHandler('WS', options))
 }
