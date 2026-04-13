@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type RefObject } from "react"
 import type { MenuState, MenuScreen } from "./useMenuNavigation"
 import type { ConfigState } from "../../types/config"
 import type { DskyState, DskyClient } from "../../types/dsky"
@@ -11,6 +11,10 @@ import ConnectScreen from "./screens/connectScreen"
 import CommandsScreen from "./screens/commandsScreen"
 import SettingsScreen from "./screens/settingsScreen"
 import AboutScreen from "./screens/aboutScreen"
+import AppsScreen from "./screens/appsScreen"
+import CalculatorScreen from "./screens/calculatorScreen"
+import ClockScreen from "./screens/clockScreen"
+import GamesScreen from "./screens/gamesScreen"
 
 interface MenuOverlayProps {
     menuState: MenuState
@@ -28,6 +32,7 @@ interface MenuOverlayProps {
     sendConfigMessage: (type: string, data?: Record<string, unknown>) => void
     sendKey: (key: string) => void
     dskyState: DskyState
+    appKeyHandlerRef: RefObject<((key: string) => void) | null>
     mode?: 'overlay' | 'screen'
 }
 
@@ -48,6 +53,7 @@ export default function MenuOverlay({
     sendConfigMessage,
     sendKey,
     dskyState,
+    appKeyHandlerRef,
     mode = 'overlay',
 }: MenuOverlayProps) {
     const overlayRef = useRef<HTMLDivElement>(null)
@@ -61,6 +67,8 @@ export default function MenuOverlay({
     if (!menuState.isOpen) return null
 
     const isSubScreen = menuState.activeScreen !== 'main'
+    const isAppScreen = menuState.activeScreen === 'calculator'
+        || menuState.activeScreen === 'clock'
 
     const renderScreen = () => {
         switch (menuState.activeScreen) {
@@ -103,6 +111,7 @@ export default function MenuOverlay({
                     <SettingsScreen
                         selectedIndex={selectedIndex}
                         onSetSelectedIndex={onSetSelectedIndex}
+                        onSelect={onNavigateTo}
                         configState={configState}
                         sendConfigMessage={sendConfigMessage}
                         viewMode={viewMode}
@@ -117,6 +126,30 @@ export default function MenuOverlay({
                         wsConnected={wsConnected}
                         clients={clients}
                     />
+                )
+            case 'apps':
+                return (
+                    <AppsScreen
+                        selectedIndex={selectedIndex}
+                        onSelect={onNavigateTo}
+                        onSetSelectedIndex={onSetSelectedIndex}
+                    />
+                )
+            case 'calculator':
+                return (
+                    <CalculatorScreen
+                        appKeyHandlerRef={appKeyHandlerRef}
+                    />
+                )
+            case 'clock':
+                return (
+                    <ClockScreen
+                        appKeyHandlerRef={appKeyHandlerRef}
+                    />
+                )
+            case 'games':
+                return (
+                    <GamesScreen />
                 )
             default:
                 return null
@@ -184,21 +217,23 @@ export default function MenuOverlay({
                 </div>
 
                 {/* Nav hints — compact, pinned at bottom */}
-                <div style={{
-                    flexShrink: 0,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: '2.5cqw',
-                    marginTop: '1.5cqh',
-                    fontSize: '3cqh',
-                    color: 'var(--menu-secondary)',
-                    flexWrap: 'wrap',
-                }}>
-                    <span><K>+</K>/<K>-</K> nav</span>
-                    <span><K>ENTR</K> sel</span>
-                    {isSubScreen && <span><K>CLR</K> back</span>}
-                    <span><K>K.REL</K> close</span>
-                </div>
+                {!isAppScreen && (
+                    <div style={{
+                        flexShrink: 0,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '2.5cqw',
+                        marginTop: '1.5cqh',
+                        fontSize: '3cqh',
+                        color: 'var(--menu-secondary)',
+                        flexWrap: 'wrap',
+                    }}>
+                        <span><K>+</K>/<K>-</K> nav</span>
+                        <span><K>ENTR</K> sel</span>
+                        {isSubScreen && <span><K>CLR</K> back</span>}
+                        <span><K>K.REL</K> close</span>
+                    </div>
+                )}
             </div>
         </div>
     )
