@@ -9,6 +9,10 @@ export type MenuScreen =
     | 'commands'
     | 'settings'
     | 'about'
+    | 'apps'
+    | 'calculator'
+    | 'clock'
+    | 'games'
 
 export interface MenuState {
     isOpen: boolean
