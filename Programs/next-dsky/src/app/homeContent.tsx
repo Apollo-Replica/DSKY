@@ -488,7 +488,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             onClose={menu.closeMenu}
             onNavigateTo={menu.navigateTo}
             onNavigateBack={menu.navigateBack}
-              selectedIndex={menu.menuState.selectedIndex}
+            selectedIndex={menu.menuState.selectedIndex}
             onSetSelectedIndex={menu.setSelectedIndex}
             onMoveSelection={menu.moveSelection}
             configState={configState}
