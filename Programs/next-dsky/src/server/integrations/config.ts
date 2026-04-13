@@ -488,6 +488,69 @@ export class ConfigIntegration extends AgcIntegration {
         this.refreshSerialPorts()
     }
 
+    /**
+     * Jump directly to a specific step (used by the new menu UI)
+     */
+    async gotoStep(step: string): Promise<void> {
+        switch (step) {
+            case 'serial':
+                this.updateConfig({
+                    step: 'serial',
+                    selectedIndex: 0,
+                    options: this.buildOptionsForStep('serial', this.configState)
+                })
+                await this.refreshSerialPorts()
+                break
+            case 'source':
+                this.updateConfig({
+                    step: 'source',
+                    selectedIndex: 0,
+                    options: this.buildOptionsForStep('source', this.configState)
+                })
+                break
+            case 'haSetup':
+                this.configState.inputSource = 'homeassistant'
+                this.updateConfig({
+                    step: 'haSetup',
+                    selectedIndex: 0,
+                    options: this.buildOptionsForStep('haSetup', this.configState)
+                })
+                break
+            case 'bridge':
+                this.configState.inputSource = 'bridge'
+                this.updateConfig({
+                    step: 'bridge',
+                    selectedIndex: 0,
+                    options: this.buildOptionsForStep('bridge', this.configState),
+                    scanning: true
+                })
+                if (this.onScanRequest) this.onScanRequest()
+                break
+            case 'yaagc':
+                this.configState.inputSource = 'yaagc'
+                this.updateConfig({
+                    step: 'yaagc',
+                    selectedIndex: 0,
+                    options: this.buildOptionsForStep('yaagc', this.configState)
+                })
+                break
+        }
+    }
+
+    /**
+     * Directly select a source and start the integration (for sources with no extra config)
+     */
+    async selectSourceDirect(source: string): Promise<void> {
+        this.configState.inputSource = source
+        this.updateConfig({
+            step: 'confirm',
+            selectedIndex: 0,
+            options: this.buildOptionsForStep('confirm', this.configState)
+        })
+        // Auto-confirm
+        await this.select()
+    }
+
     async refreshSerialPorts(): Promise<void> {
         const ports = await SerialPort.list()
         const availablePorts = ports.map((p: any) => ({

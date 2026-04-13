@@ -257,6 +257,26 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             return
         }
 
+        // Atomic reset + action (avoids client-side setTimeout race conditions)
+        if (type === 'config:reset-and-goto' && data?.step) {
+            if (process.env.DISABLE_RESET !== '1') {
+                await performReset()
+                if (configIntegration) {
+                    await configIntegration.gotoStep(data.step)
+                }
+            }
+            return
+        }
+        if (type === 'config:reset-and-select-source' && data?.source) {
+            if (process.env.DISABLE_RESET !== '1') {
+                await performReset()
+                if (configIntegration) {
+                    await configIntegration.selectSourceDirect(data.source)
+                }
+            }
+            return
+        }
+
         // Handle WiFi Connect request (only if enabled)
         if (type === 'config:wifi') {
             if (!programOptions.wifiConnect) {
@@ -317,6 +337,18 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                 // Toggle entity in haEntities step (web UI click)
                 if (data?.index !== undefined) {
                     configIntegration.toggleHaEntity(data.index)
+                }
+                break
+            case 'config:goto':
+                // Jump to a specific config step (from menu UI)
+                if (data?.step) {
+                    await configIntegration.gotoStep(data.step)
+                }
+                break
+            case 'config:select-source':
+                // Directly select a source (for sources with no extra config)
+                if (data?.source) {
+                    await configIntegration.selectSourceDirect(data.source)
                 }
                 break
         }
