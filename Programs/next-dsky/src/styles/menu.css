@@ -1,0 +1,24 @@
+/* ============================================
+   DSKY Menu System
+   ============================================ */
+
+/* Menu color palette — centralised custom properties */
+:root {
+    --menu-primary: #4ade80;
+    --menu-secondary: #2d6b47;
+    --menu-border: #1a3a1a;
+    --menu-bg: rgba(10, 20, 10, 0.85);
+    --menu-bg-dark: #166534;
+    --menu-bg-hover: #15803d;
+    --menu-highlight: #86efac;
+    --menu-accent: #facc15;
+}
+
+/* Menu overlay as container query context — allows children to use
+   cqw/cqh units that scale to the menu area regardless of whether
+   it lives inside the small overlay screen or fills the viewport. */
+
+.menu-overlay-screen,
+[aria-label="DSKY Menu"] {
+    container-type: size;
+}
