@@ -20,10 +20,14 @@ import type { ConfigState } from "../types/config";
 
 type ViewMode = 'screen' | 'full'
 
+/** Aspect ratio of the DSKY chassis image */
+const DSKY_AR = 484 / 558
+
 export default function HomeContent({ envOled, envDisplay }: { envOled: boolean, envDisplay: string }) {
   const searchParams = useSearchParams()
   let oledMode = envOled ? 'yes' : 'no'
-  if(searchParams.get('oled') == '1') oledMode = 'yes'
+  if(searchParams.get('oled') === '0') oledMode = 'no'
+  else if(searchParams.get('oled') === '1') oledMode = 'yes'
 
   let displayType = envDisplay
   if(searchParams.get('display')) displayType = searchParams.get('display') as string
@@ -39,6 +43,19 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   const mountedRef = useRef(true)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const hasRedirectedRef = useRef(false)
+
+  // Track how much the DSKY container has shrunk on narrow viewports (1 = full size)
+  const [containerRatio, setContainerRatio] = useState(1)
+
+  useEffect(() => {
+    const update = () => {
+      const idealWidth = window.innerHeight * 0.96 * DSKY_AR
+      setContainerRatio(Math.min(1, window.innerWidth / idealWidth))
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   // --- sendKey and menu hook ---
 
@@ -359,7 +376,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       }}>
         <div style={{
           position: 'relative',
-          height: '96vh',
+          width: `min(calc(96vh * ${DSKY_AR}), 100vw)`,
           aspectRatio: '484 / 558',
         }}>
 
@@ -383,8 +400,10 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
           />
 
-          {/* EL Display — positionable wrapper */}
-          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="overlay" />
+          {/* EL Display — positionable wrapper (hidden when menu is open) */}
+          {!menu.menuState.isOpen && (
+            <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="overlay" containerRatio={containerRatio} />
+          )}
 
           {/* Alarm indicators */}
           <Alarms dskyState={dskyState} opacity={opacityStatus} />
@@ -435,7 +454,9 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
 
         {/* Display area — holds ELDisplay and menu overlay */}
         <div className="screen-mode-display">
-          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="screen" />
+          {!menu.menuState.isOpen && (
+            <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="screen" />
+          )}
           {/* Menu overlay — covers the display area in screen mode */}
           <MenuOverlay
             menuState={menu.menuState}

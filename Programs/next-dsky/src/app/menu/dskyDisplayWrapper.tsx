@@ -14,12 +14,13 @@ interface Props {
     configState: ConfigState | null
     sendConfigMessage: (type: string, data?: Record<string, unknown>) => void
     mode: 'overlay' | 'screen'
+    containerRatio?: number  // 1 = full size, <1 = width-constrained on narrow viewports
 }
 
 // Steps that need the config wizard UI
 const WIZARD_STEPS = ['serial', 'haSetup', 'haUrl', 'haToken', 'haDiscover', 'haEntities', 'bridge', 'manualUrl', 'yaagc', 'confirm', 'network']
 
-export default function DskyDisplayWrapper({ dskyState, opacity, displayType, oledMode, configState, sendConfigMessage, mode }: Props) {
+export default function DskyDisplayWrapper({ dskyState, opacity, displayType, oledMode, configState, sendConfigMessage, mode, containerRatio = 1 }: Props) {
     const configReady = configState?.ready !== false
 
     const showWizard = !configReady && configState && WIZARD_STEPS.includes(configState.step)
@@ -104,7 +105,8 @@ export default function DskyDisplayWrapper({ dskyState, opacity, displayType, ol
                 height: `${SCREEN_AREA.height}%`,
                 overflow: 'hidden',
                 zIndex: 3,
-                '--scale': 0.96 * SCREEN_AREA.height / 100,
+                backgroundColor: 'transparent',
+                '--scale': 0.96 * containerRatio * SCREEN_AREA.height / 100,
                 '--margin-top': '0px',
                 '--margin-left': '0px',
             } as React.CSSProperties}
