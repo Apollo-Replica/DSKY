@@ -25,10 +25,10 @@ interface CardDef {
 const CARDS: CardDef[] = [
     { id: 'simulate', icon: '\u25C7', label: 'SIMULATE', screen: 'simulate' },
     { id: 'connect',  icon: '\u25CE', label: 'HOME ASST', screen: 'connect' },
+    { id: 'apps',     icon: '\u25A6', label: 'APPS',     screen: 'apps' },
     { id: 'commands', icon: '\u2630', label: 'COMMANDS', screen: 'commands' },
     { id: 'random',   icon: '\u2684', label: 'RANDOM',   action: 'random' },
     { id: 'settings', icon: '\u2699', label: 'SETTINGS', screen: 'settings' },
-    { id: 'about',    icon: '\u24D8', label: 'ABOUT',    screen: 'about' },
 ]
 
 export const MAIN_SCREEN_ITEM_COUNT = CARDS.length

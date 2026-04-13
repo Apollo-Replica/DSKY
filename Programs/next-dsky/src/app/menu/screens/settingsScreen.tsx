@@ -2,11 +2,13 @@
 
 import MenuCard from "../menuCard"
 import MenuGrid from "../menuGrid"
+import type { MenuScreen } from "../useMenuNavigation"
 import type { ConfigState } from "../../../types/config"
 
 interface SettingsScreenProps {
     selectedIndex: number
     onSetSelectedIndex: (index: number) => void
+    onSelect: (screen: MenuScreen) => void
     configState: ConfigState | null
     sendConfigMessage: (type: string, data?: Record<string, unknown>) => void
     viewMode: 'screen' | 'full'
@@ -17,6 +19,7 @@ interface SettingsScreenProps {
 export default function SettingsScreen({
     selectedIndex,
     onSetSelectedIndex,
+    onSelect,
     configState,
     sendConfigMessage,
     viewMode,
@@ -39,6 +42,11 @@ export default function SettingsScreen({
             badge: viewMode.toUpperCase(),
             badgeActive: viewMode === 'full',
         },
+        {
+            id: 'about',
+            icon: '\u24D8',
+            label: 'ABOUT',
+        },
     ]
 
     const handleCardClick = (id: string) => {
@@ -47,6 +55,8 @@ export default function SettingsScreen({
             onClose()
         } else if (id === 'display') {
             onCycleViewMode()
+        } else if (id === 'about') {
+            onSelect('about')
         }
     }
 
@@ -72,5 +82,5 @@ export default function SettingsScreen({
 }
 
 export function getSettingsScreenItemCount(): number {
-    return 2
+    return 3
 }
