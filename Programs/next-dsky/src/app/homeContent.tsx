@@ -3,16 +3,25 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { AUDIO_LOAD, NO_CONN, NO_CONN_UHOH } from "../utils/dskyStates";
 import { chunkedUpdate, getChangedChunks } from "@/utils/chunks";
-import { useSearchParams, useRouter } from 'next/navigation'
-import Keyboard from "./keyboard";
-import ClientList from "./clientList";
-import Alarms from "./alarms";
+import { useSearchParams } from 'next/navigation'
 import ELDisplay from "./elDisplay";
-import HelpPanel from "./helpPanel";
+import Alarms from "./alarms";
+import ClientList from "./clientList";
+import MenuOverlay from "./menu/menuOverlay";
+import { useMenuNavigation } from "./menu/useMenuNavigation";
+import { MAIN_SCREEN_ITEM_COUNT } from "./menu/screens/mainScreen";
+import { SIMULATE_SCREEN_ITEM_COUNT } from "./menu/screens/simulateScreen";
+import { getConnectScreenItemCount } from "./menu/screens/connectScreen";
+import { getSettingsScreenItemCount } from "./menu/screens/settingsScreen";
+import DskyKeyboard from "./menu/dskyKeyboard";
+import DskyDisplayWrapper from "./menu/dskyDisplayWrapper";
+import { SCREEN_AREA } from "./menu/constants";
+import type { ConfigState } from "../types/config";
+
+type ViewMode = 'screen' | 'full'
 
 export default function HomeContent({ envOled, envDisplay }: { envOled: boolean, envDisplay: string }) {
   const searchParams = useSearchParams()
-  const router = useRouter()
   let oledMode = envOled ? 'yes' : 'no'
   if(searchParams.get('oled') == '1') oledMode = 'yes'
 
@@ -21,26 +30,125 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
 
   const initialState = AUDIO_LOAD
   const [dskyState,setDskyState] = useState(initialState)
-  const [audioContext, setAudioContext] : any = useState(null)
-  const [audioFiles, setAudioFiles] : any = useState(null)
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
+  const [audioFiles, setAudioFiles] = useState<Record<string, AudioBuffer> | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
-  const [showKeyboard, setShowKeyboard] : any = useState(false)
-  const [configState, setConfigState] = useState<any>(null)
-
+  const [viewMode, setViewMode] = useState<ViewMode>('full')
+  const [configState, setConfigState] = useState<ConfigState | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const mountedRef = useRef(true)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const hasRedirectedRef = useRef(false)
 
+  // --- sendKey and menu hook ---
+
+  const sendKey = useCallback((key: string) => {
+    const ws = wsRef.current
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(key)
+    }
+  }, [])
+
+  const sendConfigMessage = useCallback((type: string, data?: Record<string, unknown>) => {
+    const ws = wsRef.current
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type, ...data }))
+    }
+  }, [])
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode(prev => prev === 'full' ? 'screen' : 'full')
+  }, [])
+
+  const menu = useMenuNavigation({ sendKey })
+
+  // When server sends 'source' step, open menu instead (only once)
+  const menuOpenedForSourceRef = useRef(false)
+  useEffect(() => {
+    const configReady = configState?.ready !== false
+    if (!configReady && configState && configState.step === 'source' && !menuOpenedForSourceRef.current) {
+      menuOpenedForSourceRef.current = true
+      menu.openMenu()
+    }
+    if (configReady) {
+      menuOpenedForSourceRef.current = false
+    }
+  }, [configState?.step, configState?.ready, menu.openMenu])
+
+  const getItemCountForScreen = useCallback(() => {
+    switch (menu.menuState.activeScreen) {
+      case 'main': return MAIN_SCREEN_ITEM_COUNT
+      case 'simulate': return SIMULATE_SCREEN_ITEM_COUNT
+      case 'connect': return getConnectScreenItemCount(configState)
+      case 'settings': return getSettingsScreenItemCount()
+      default: return 0
+    }
+  }, [menu.menuState.activeScreen, configState])
+
+  // Refs for latest menu functions (avoids stale closures)
+  const menuRef = useRef(menu)
+  menuRef.current = menu
+  const getItemCountRef = useRef(getItemCountForScreen)
+  getItemCountRef.current = getItemCountForScreen
+
+  const handleMenuKeyRef = useRef((key: string) => {})
+  handleMenuKeyRef.current = (key: string) => {
+    const m = menuRef.current
+    const maxItems = getItemCountRef.current()
+    switch (key) {
+      case '+':
+      case 'v':
+        if (maxItems > 0) m.moveSelection(-1, maxItems)
+        break
+      case '-':
+      case 'n':
+        if (maxItems > 0) m.moveSelection(1, maxItems)
+        break
+      case 'e':
+      case 'p': {
+        const selected = document.querySelector<HTMLElement>('[data-menu-card="true"][aria-selected="true"]')
+        if (selected) {
+          selected.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+        }
+        break
+      }
+      case 'c':
+      case 'r':
+        m.navigateBack()
+        break
+      case 'k':
+        m.closeMenu()
+        break
+      default:
+        if (/^[1-9]$/.test(key)) {
+          const idx = parseInt(key) - 1
+          if (idx < maxItems) {
+            m.setSelectedIndex(idx)
+          }
+        }
+    }
+  }
+
+  const sendKeyWithMenu = useCallback((key: string) => {
+    const consumed = menuRef.current.handleKeyEvent(key)
+    if (consumed) {
+      if (menuRef.current.menuState.isOpen) {
+        handleMenuKeyRef.current(key)
+      }
+      return
+    }
+    sendKey(key)
+  }, [sendKey])
+
+  // --- Audio loading ---
+
   const fetchAudioFiles = async () => {
-    // Cache audio files
     let sampleRate
     if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      // Webkit sucks for audio
       sampleRate = 32000
     }
-    const newAudioContext : any = new (window.AudioContext)({sampleRate})
-    const newAudioFiles : any = {}
+    const newAudioContext = new AudioContext({sampleRate})
+    const newAudioFiles: Record<string, AudioBuffer> = {}
     for(let i=1; i<=11; i++){
       for(let j=0; j<5; j++){
         const res = await fetch(`audio/clicks${i}_${j}.mp3`)
@@ -54,6 +162,8 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   }
 
   useEffect(()=>{ fetchAudioFiles() },[])
+
+  // --- WebSocket connection ---
 
   const connect = useCallback(() => {
     if (!mountedRef.current || !audioContext) return
@@ -88,14 +198,12 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     }
   }, [audioContext])
 
-  // WebSocket connection effect
   useEffect(() => {
     if (!audioContext) return
 
     mountedRef.current = true
     connect()
 
-    // Agent ping interval
     const agentInterval = setInterval(() => {
       const ws = wsRef.current
       if (ws?.readyState === WebSocket.OPEN && searchParams.get('agent') == "1") {
@@ -117,7 +225,8 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     }
   }, [audioContext, connect, searchParams])
 
-  // Set up WebSocket message handling
+  // --- WebSocket message handling & keyboard relay ---
+
   useEffect(() => {
     if(!audioContext || !audioFiles) return
     const ws = wsRef.current
@@ -137,21 +246,14 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       if(queuedTimeout) clearTimeout(queuedTimeout)
       const newState = JSON.parse(event.data);
 
-      // If config is not ready, navigate to /config (only once)
-      if (newState.config && !newState.config.ready) {
-        if (!hasRedirectedRef.current) {
-          hasRedirectedRef.current = true
-          router.push('/config')
-        }
-        return
+      // Always save config state (for wizard and menu panels)
+      if (newState.config) {
+        setConfigState(newState.config)
       }
 
-      // Save config state for help panel (only when it changes meaningfully)
-      if (newState.config && newState.config.ready) {
-        setConfigState((prev: any) => {
-          if (prev?.inputSource === newState.config.inputSource) return prev
-          return newState.config
-        })
+      // If config not ready, don't process DSKY display state
+      if (newState.config && !newState.config.ready) {
+        return
       }
 
       const changedChunks = getChangedChunks(hookData.lastState,newState)
@@ -170,12 +272,27 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     ws.addEventListener('message', handleMessage)
 
     const relayKeyPress = (event: KeyboardEvent) => {
+      if (event.repeat) return
+      const key = event.key
+
+      if (key.length === 1) {
+        const consumed = menuRef.current.handleKeyEvent(key)
+        if (consumed) {
+          if (menuRef.current.menuState.isOpen) {
+            handleMenuKeyRef.current(key)
+          }
+          event.preventDefault()
+          return
+        }
+      }
+
       const currentWs = wsRef.current
-      if(event.key.length == 1 && !event.repeat && currentWs?.readyState === WebSocket.OPEN){
-        currentWs.send(event.key)
+      if(key.length == 1 && currentWs?.readyState === WebSocket.OPEN){
+        currentWs.send(key)
       }
     }
     const relayKeyRelease = (event: KeyboardEvent) => {
+      if (menuRef.current.menuState.isOpen) return
       const currentWs = wsRef.current
       if((event.key == 'p' || event.key == 'P') && currentWs?.readyState === WebSocket.OPEN){
         currentWs.send('O')
@@ -184,13 +301,14 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     window.addEventListener('keydown', relayKeyPress);
     window.addEventListener('keyup', relayKeyRelease);
 
-    // Cleanup function
     return () => {
       ws.removeEventListener('message', handleMessage)
       window.removeEventListener('keydown', relayKeyPress);
       window.removeEventListener('keyup', relayKeyRelease);
     };
   }, [wsConnected, audioFiles, audioContext]);
+
+  // --- No-connection state animation ---
 
   useEffect(()=>{
     if(!audioContext || !audioFiles) return
@@ -203,10 +321,10 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       setDskyState
     }
 
-    let noConnTimeout1 : any
-    let noConnTimeout2 : any
-    let noConnInterval1 : any
-    let noConnInterval2 : any
+    let noConnTimeout1: ReturnType<typeof setTimeout> | undefined
+    let noConnTimeout2: ReturnType<typeof setTimeout> | undefined
+    let noConnInterval1: ReturnType<typeof setInterval> | undefined
+    let noConnInterval2: ReturnType<typeof setInterval> | undefined
     if(!wsConnected) {
       noConnTimeout1 = setTimeout(()=> {
         noConnInterval1 = setInterval(()=> chunkedUpdate(NO_CONN, hookData),1000)
@@ -216,39 +334,130 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       }, 2000)
     }
 
-    // Cleanup function
     return () => {
-      if(noConnTimeout1) {
-        clearTimeout(noConnTimeout1)
-      }
-      if(noConnTimeout2) {
-        clearTimeout(noConnTimeout2)
-      }
-      if(noConnInterval1){
-        clearInterval(noConnInterval1)
-      }
-      if(noConnInterval2){
-        clearInterval(noConnInterval2)
-      }
+      if(noConnTimeout1) clearTimeout(noConnTimeout1)
+      if(noConnTimeout2) clearTimeout(noConnTimeout2)
+      if(noConnInterval1) clearInterval(noConnInterval1)
+      if(noConnInterval2) clearInterval(noConnInterval2)
     };
   }, [wsConnected, audioFiles, audioContext]);
 
-  const sendKey = useCallback((key: string) => {
-    const ws = wsRef.current
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(key)
-    }
-  }, [])
+  // --- Render ---
 
   const opacityEL = dskyState.Standby ? 0 : (dskyState.DisplayBrightness ?? 127) / 127
   const opacityStatus = (dskyState.StatusBrightness ?? 127) / 127
+
+  if (viewMode === 'full') {
+    // Full DSKY skin — same layout as menu overlay
+    return (
+      <main style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#000',
+      }}>
+        <div style={{
+          position: 'relative',
+          height: '96vh',
+          aspectRatio: '484 / 558',
+        }}>
+
+          {/* Screen background color — matches display area, behind the PNG */}
+          {configState?.ready && (
+            <div style={{
+              position: 'absolute',
+              left: `${SCREEN_AREA.left}%`,
+              top: `${SCREEN_AREA.top}%`,
+              width: `${SCREEN_AREA.width}%`,
+              height: `${SCREEN_AREA.height}%`,
+              backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
+              zIndex: 0,
+            }} />
+          )}
+
+          {/* DSKY chassis image — on top of green bg, transparent screen area shows through */}
+          <img
+            src="./dsky.png"
+            alt="DSKY unit"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
+          />
+
+          {/* EL Display — positionable wrapper */}
+          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="overlay" />
+
+          {/* Alarm indicators */}
+          <Alarms dskyState={dskyState} opacity={opacityStatus} />
+
+          {/* Keyboard buttons */}
+          <DskyKeyboard sendKey={sendKeyWithMenu} />
+
+          {/* Client list */}
+          <ClientList clients={dskyState?.clients || []} />
+
+          {/* Menu overlay — inside the DSKY container, over the display area */}
+          <MenuOverlay
+          menuState={menu.menuState}
+          onClose={menu.closeMenu}
+          onNavigateTo={menu.navigateTo}
+          onNavigateBack={menu.navigateBack}
+          selectedIndex={menu.menuState.selectedIndex}
+          onSetSelectedIndex={menu.setSelectedIndex}
+          onMoveSelection={menu.moveSelection}
+          configState={configState}
+          clients={dskyState?.clients || []}
+          wsConnected={wsConnected}
+          viewMode={viewMode}
+          onCycleViewMode={toggleViewMode}
+          sendConfigMessage={sendConfigMessage}
+          sendKey={sendKeyWithMenu}
+          dskyState={dskyState}
+        />
+        </div>
+      </main>
+    )
+  }
+
+  // Screen-only mode — display with optional alarms sidebar
   return (
-    <main className={`flex min-h-screen flex-col items-center justify-between display-${displayType} oled-${oledMode} keyboard-${showKeyboard?1:0}`} >
-      <Keyboard sendKey={sendKey} showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard} />
+    <main style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
+    }}>
+      <div className="screen-mode-layout">
+        {/* Alarms sidebar — hidden by default, shown on wide screens via CSS */}
+        <div className="screen-mode-alarms">
+          <Alarms dskyState={dskyState} opacity={opacityStatus} mode="screen" />
+        </div>
+
+        {/* Display area — holds ELDisplay and menu overlay */}
+        <div className="screen-mode-display">
+          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="screen" />
+          {/* Menu overlay — covers the display area in screen mode */}
+          <MenuOverlay
+            menuState={menu.menuState}
+            onClose={menu.closeMenu}
+            onNavigateTo={menu.navigateTo}
+            onNavigateBack={menu.navigateBack}
+              selectedIndex={menu.menuState.selectedIndex}
+            onSetSelectedIndex={menu.setSelectedIndex}
+            onMoveSelection={menu.moveSelection}
+            configState={configState}
+            clients={dskyState?.clients || []}
+            wsConnected={wsConnected}
+            viewMode={viewMode}
+            onCycleViewMode={toggleViewMode}
+            sendConfigMessage={sendConfigMessage}
+            sendKey={sendKeyWithMenu}
+            dskyState={dskyState}
+            mode="screen"
+          />
+        </div>
+      </div>
       <ClientList clients={dskyState?.clients || []} />
-      <Alarms dskyState={dskyState} opacity={opacityStatus} />
-      <ELDisplay dskyState={dskyState} opacity={opacityEL} />
-      <HelpPanel config={configState} />
     </main>
   );
 }
