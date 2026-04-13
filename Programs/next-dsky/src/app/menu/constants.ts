@@ -5,9 +5,9 @@
 
 export const SCREEN_AREA = {
     left: 55.6,
-    top: 11.8,
+    top: 11.4,
     width: 29.7,
-    height: 44.6,
+    height: 45.0,
     right: 85.3,
     bottom: 56.4,
 }

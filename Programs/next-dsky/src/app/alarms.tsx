@@ -9,43 +9,44 @@ interface AlarmsProps {
 }
 
 // Default area position (% of DSKY image container) — used in overlay mode
-const DEFAULT_AREA = { left: 13.1, top: 10, width: 33.2, height: 48.1 }
+const DEFAULT_BG_AREA = { left: 12.3, top: 9.1, width: 34, height: 49.2 }
+const DEFAULT_LABEL_AREA = { left: 12.3, top: 10, width: 34, height: 47.8 }
 
 // Each alarm: key, overlay position (% of alarm container), color
-// Overlay positions are tuned for the DSKY photo overlay mode.
+// Positions mapped from original hand-tuned values to new container (12.3, 9.5, 34, 48.8)
 const alarmDefs = [
-    { key: 'IlluminateUplinkActy', left: 5.6, top: 4.7, width: 41.9, height: 11.8, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateNoAtt',      left: 5.6, top: 17.7, width: 41.9, height: 11.8, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateStby',       left: 5.6, top: 31.2, width: 41.9, height: 11.8, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateKeyRel',     left: 5.6, top: 44, width: 41.9, height: 11.8, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateOprErr',     left: 6, top: 57, width: 41.9, height: 11.8, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateNoDap',      left: 5.6, top: 70.4, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminatePrioDisp',   left: 5.6, top: 83.5, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateTemp',       left: 51.4, top: 5, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateGimbalLock', left: 51.4, top: 18, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateProg',       left: 51.4, top: 31, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateRestart',    left: 51, top: 44.2, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateTracker',    left: 51.8, top: 57.4, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateAlt',        left: 51.8, top: 70.4, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateVel',        left: 50.6, top: 83.5, width: 41.9, height: 11.8, color: 'rgb(253, 203, 21)' },
+    { key: 'IlluminateUplinkActy', left: 7.82, top: 5.66, width: 40.91, height: 11.63, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateNoAtt',      left: 7.82, top: 18.47, width: 40.91, height: 11.63, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateStby',       left: 7.82, top: 31.78, width: 40.91, height: 11.63, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateKeyRel',     left: 7.82, top: 44.39, width: 40.91, height: 11.63, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateOprErr',     left: 8.21, top: 57.21, width: 40.91, height: 11.63, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateNoDap',      left: 7.82, top: 70.41, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminatePrioDisp',   left: 7.82, top: 83.33, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateTemp',       left: 52.54, top: 5.95, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateGimbalLock', left: 52.54, top: 18.77, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateProg',       left: 52.54, top: 31.58, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateRestart',    left: 52.15, top: 44.59, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateTracker',    left: 52.93, top: 57.60, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateAlt',        left: 52.93, top: 70.41, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateVel',        left: 51.76, top: 83.33, width: 40.91, height: 11.63, color: 'rgb(230, 120, 30)' },
 ]
 
 // Screen-mode positions: match the SVG mask window cutouts exactly (% of mask viewBox)
 const screenAlarmDefs = [
-    { key: 'IlluminateUplinkActy', left: 5.35, top: 3.44, width: 41.97, height: 12.13, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateNoAtt',      left: 5.34, top: 16.75, width: 41.98, height: 12.29, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateStby',       left: 5.37, top: 30.51, width: 41.95, height: 12.01, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateKeyRel',     left: 5.34, top: 43.98, width: 42.01, height: 12.29, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateOprErr',     left: 5.35, top: 57.45, width: 41.97, height: 12.13, color: 'rgb(151, 217, 255)' },
-    { key: 'IlluminateNoDap',      left: 5.35, top: 70.78, width: 41.97, height: 12.13, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminatePrioDisp',   left: 5.34, top: 84.09, width: 41.98, height: 12.29, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateTemp',       left: 52.68, top: 3.59, width: 41.95, height: 11.98, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateGimbalLock', left: 52.68, top: 17.05, width: 41.95, height: 11.99, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateProg',       left: 52.66, top: 30.27, width: 41.98, height: 12.25, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateRestart',    left: 52.65, top: 43.98, width: 41.98, height: 12.28, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateTracker',    left: 52.68, top: 57.45, width: 41.95, height: 11.98, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateAlt',        left: 52.66, top: 70.65, width: 41.98, height: 12.25, color: 'rgb(253, 203, 21)' },
-    { key: 'IlluminateVel',        left: 52.68, top: 84.38, width: 41.95, height: 11.99, color: 'rgb(253, 203, 21)' },
+    { key: 'IlluminateUplinkActy', left: 5.35, top: 3.44, width: 41.97, height: 12.13, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateNoAtt',      left: 5.34, top: 16.75, width: 41.98, height: 12.29, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateStby',       left: 5.37, top: 30.51, width: 41.95, height: 12.01, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateKeyRel',     left: 5.34, top: 43.98, width: 42.01, height: 12.29, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateOprErr',     left: 5.35, top: 57.45, width: 41.97, height: 12.13, color: 'rgb(255, 245, 180)' },
+    { key: 'IlluminateNoDap',      left: 5.35, top: 70.78, width: 41.97, height: 12.13, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminatePrioDisp',   left: 5.34, top: 84.09, width: 41.98, height: 12.29, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateTemp',       left: 52.68, top: 3.59, width: 41.95, height: 11.98, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateGimbalLock', left: 52.68, top: 17.05, width: 41.95, height: 11.99, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateProg',       left: 52.66, top: 30.27, width: 41.98, height: 12.25, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateRestart',    left: 52.65, top: 43.98, width: 41.98, height: 12.28, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateTracker',    left: 52.68, top: 57.45, width: 41.95, height: 11.98, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateAlt',        left: 52.66, top: 70.65, width: 41.98, height: 12.25, color: 'rgb(230, 120, 30)' },
+    { key: 'IlluminateVel',        left: 52.68, top: 84.38, width: 41.95, height: 11.99, color: 'rgb(230, 120, 30)' },
 ]
 
 const Alarms = ({ dskyState, opacity, area, mode = 'overlay' }: AlarmsProps) => {
@@ -91,33 +92,44 @@ const Alarms = ({ dskyState, opacity, area, mode = 'overlay' }: AlarmsProps) => 
     }
 
     // Overlay mode: absolute positioning within DSKY image container
-    const a = area ?? DEFAULT_AREA
-    const containerStyle = {
+    const bg = area ?? DEFAULT_BG_AREA
+    const lbl = DEFAULT_LABEL_AREA
+    const baseStyle = {
         position: 'absolute' as const,
-        left: `${a.left}%`,
-        top: `${a.top}%`,
-        width: `${a.width}%`,
-        height: `${a.height}%`,
         pointerEvents: 'none' as const,
     }
     return (
         <>
-            {/* Color rectangles — behind the DSKY chassis (zIndex 1) */}
-            <div style={{ ...containerStyle, zIndex: 1 }}>
-                {alarmDefs.map(alarm => (
-                    <div key={alarm.key} style={{
-                        position: 'absolute',
-                        left: `${alarm.left}%`,
-                        top: `${alarm.top}%`,
-                        width: `${alarm.width}%`,
-                        height: `${alarm.height}%`,
-                        backgroundColor: dskyState[alarm.key] ? alarm.color : 'white',
-                        opacity: dskyState[alarm.key] ? opacity : 1,
-                    }} />
-                ))}
+            {/* Color rectangles — above the DSKY chassis, below labels */}
+            <div style={{ ...baseStyle, left: `${bg.left}%`, top: `${bg.top}%`, width: `${bg.width}%`, height: `${bg.height}%`, zIndex: 2 }}>
+                {alarmDefs.map(alarm => {
+                    const active = !!dskyState[alarm.key]
+                    return (
+                        <div key={alarm.key} style={{
+                            position: 'absolute',
+                            left: `${alarm.left}%`,
+                            top: `${alarm.top}%`,
+                            width: `${alarm.width}%`,
+                            height: `${alarm.height}%`,
+                            overflow: 'hidden',
+                        }}>
+                            <div style={{
+                                position: 'absolute',
+                                left: '15%',
+                                top: '20%',
+                                width: '70%',
+                                height: '60%',
+                                backgroundColor: active ? alarm.color : undefined,
+                                opacity: active ? opacity : 0,
+                                borderRadius: '3px',
+                                boxShadow: active ? `0 0 14px 10px ${alarm.color}` : undefined,
+                            }} />
+                        </div>
+                    )
+                })}
             </div>
             {/* SVG labels — above the DSKY chassis (zIndex 3) */}
-            <div style={{ ...containerStyle, zIndex: 3 }}>
+            <div style={{ ...baseStyle, left: `${lbl.left}%`, top: `${lbl.top}%`, width: `${lbl.width}%`, height: `${lbl.height}%`, zIndex: 3 }}>
                 <Image
                     alt={'alarms_labels'}
                     src={'./alarms_labels.svg'}
