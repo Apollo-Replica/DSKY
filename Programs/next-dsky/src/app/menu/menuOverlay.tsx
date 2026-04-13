@@ -146,7 +146,8 @@ export default function MenuOverlay({
                 display: 'flex',
                 flexDirection: 'column',
                 zIndex: mode === 'screen' ? 1000 : 5,
-                backgroundColor: '#000',
+                backgroundColor: 'transparent',
+                outline: 'none',
                 fontFamily: 'monospace',
             }}
             role="dialog"
