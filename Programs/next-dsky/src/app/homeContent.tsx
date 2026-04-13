@@ -13,6 +13,7 @@ import { MAIN_SCREEN_ITEM_COUNT } from "./menu/screens/mainScreen";
 import { SIMULATE_SCREEN_ITEM_COUNT } from "./menu/screens/simulateScreen";
 import { getConnectScreenItemCount } from "./menu/screens/connectScreen";
 import { getSettingsScreenItemCount } from "./menu/screens/settingsScreen";
+import { APPS_SCREEN_ITEM_COUNT } from "./menu/screens/appsScreen";
 import DskyKeyboard from "./menu/dskyKeyboard";
 import DskyDisplayWrapper from "./menu/dskyDisplayWrapper";
 import { SCREEN_AREA } from "./menu/constants";
@@ -98,7 +99,8 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       case 'simulate': return SIMULATE_SCREEN_ITEM_COUNT
       case 'connect': return getConnectScreenItemCount(configState)
       case 'settings': return getSettingsScreenItemCount()
-      default: return 0
+      case 'apps': return APPS_SCREEN_ITEM_COUNT
+      default: return 0 // app screens (calculator, clock, games) handle their own keys
     }
   }, [menu.menuState.activeScreen, configState])
 
@@ -108,8 +110,30 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   const getItemCountRef = useRef(getItemCountForScreen)
   getItemCountRef.current = getItemCountForScreen
 
+  // App key handler — apps register their own handler to intercept keys
+  const appKeyHandlerRef = useRef<((key: string) => void) | null>(null)
+
+  // Triple-N detection inside apps (to navigate back to menu)
+  // Counts consecutive 'n' presses — no timer, no buffering, instant action
+  const appNounStreak = useRef(0)
+
   const handleMenuKeyRef = useRef((key: string) => {})
   handleMenuKeyRef.current = (key: string) => {
+    if (appKeyHandlerRef.current) {
+      if (key === 'n') {
+        appNounStreak.current++
+        if (appNounStreak.current >= 3) {
+          appNounStreak.current = 0
+          menuRef.current.navigateBack()
+          return
+        }
+      } else {
+        appNounStreak.current = 0
+      }
+      appKeyHandlerRef.current(key)
+      return
+    }
+
     const m = menuRef.current
     const maxItems = getItemCountRef.current()
     switch (key) {
@@ -431,6 +455,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           sendConfigMessage={sendConfigMessage}
           sendKey={sendKeyWithMenu}
           dskyState={dskyState}
+          appKeyHandlerRef={appKeyHandlerRef}
         />
         </div>
       </main>
@@ -474,6 +499,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             sendConfigMessage={sendConfigMessage}
             sendKey={sendKeyWithMenu}
             dskyState={dskyState}
+            appKeyHandlerRef={appKeyHandlerRef}
             mode="screen"
           />
         </div>
