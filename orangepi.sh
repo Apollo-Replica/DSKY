@@ -31,7 +31,7 @@ else
             curl -fsS http://localhost:3000 >/dev/null 2>&1 && break
             sleep 1
         done
-        chromium-browser --start-fullscreen --incognito http://localhost:3000 >/dev/null 2>&1 &
+        chromium-browser --start-fullscreen --incognito http://localhost:3000/?view=screen >/dev/null 2>&1 &
         sleep 5
         wait "$next_pid"
     done
