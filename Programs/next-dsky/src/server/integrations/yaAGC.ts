@@ -4,7 +4,12 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execFile } from 'node:child_process'
 import { OFF_TEST } from '../../utils/dskyStates'
-import { YAAGC_VERSIONS } from './config'
+const YAAGC_VERSIONS = [
+    { name: 'Comanche055', value: 'Comanche055' },
+    { name: 'Luminary099', value: 'Luminary099' },
+    { name: 'Luminary210', value: 'Luminary210' },
+    { name: 'Start my own YaAGC', value: 'own' },
+]
 import { AgcIntegration } from './AgcIntegration'
 
 const codeToString = (code: number): string => {

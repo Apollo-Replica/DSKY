@@ -9,7 +9,7 @@ const SERVICE_TYPE = 'dsky'
 const SERVICE_PROTOCOL = 'tcp'
 const DEFAULT_WS_PATH = '/ws'
 
-import type { DiscoveredAPI } from '../types/config'
+import type { DiscoveredAPI } from '../types/serverState'
 export type { DiscoveredAPI }
 
 interface MDNSServiceOptions {
@@ -27,6 +27,14 @@ class MDNSService {
     private options: MDNSServiceOptions | null = null
     private currentTxt: Record<string, string> = {}
     private runtimeInterface: string | null = null
+
+    setApp(app: string): void {
+        this.currentTxt.app = app
+        // Re-publish if running so the TXT record updates on the network
+        if (this.bonjour && this.options) {
+            this.restart()
+        }
+    }
 
     setRuntimeInterface(ip: string | null): void {
         this.runtimeInterface = ip
@@ -94,7 +102,7 @@ class MDNSService {
         this.currentTxt = {
             version: options.version || '0.1.0',
             wsPath: DEFAULT_WS_PATH,
-            mode: 'config',
+            app: this.currentTxt.app || 'idle',
             hostname: os.hostname()
         }
 
@@ -197,7 +205,7 @@ class MDNSService {
             url,
             name: service.name,
             version: txt.version as string,
-            mode: txt.mode as string
+            app: txt.app as string
         }
     }
 
@@ -207,11 +215,11 @@ class MDNSService {
         }
     }
 
-    updateMode(mode: string): void {
-        this.currentTxt.mode = mode
+    updateApp(app: string): void {
+        this.currentTxt.app = app
         // Note: bonjour-service doesn't support updating TXT records after publish
-        // The mode will be updated on next restart
-        console.log(`[mDNS] Mode updated to: ${mode} (will apply on next announcement)`)
+        // The app will be updated on next restart
+        console.log(`[mDNS] App updated to: ${app} (will apply on next announcement)`)
     }
 
     getDiscoveredServices(): DiscoveredAPI[] {

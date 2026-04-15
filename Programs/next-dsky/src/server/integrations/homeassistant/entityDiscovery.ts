@@ -7,7 +7,7 @@ import {
 } from 'home-assistant-js-websocket'
 import { NounConfig } from './types'
 import { assignNouns } from '../../../utils/nounAssignment'
-import type { DiscoveredEntity } from '../../../types/config'
+import type { DiscoveredEntity } from '../../../types/serverState'
 
 export type { DiscoveredEntity }
 
