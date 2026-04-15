@@ -28,6 +28,7 @@ let serverState: ServerState = {
     ha: { configured: false },
     wifi: { available: false, running: false },
     shutdown: false,
+    baseUrl: null,
 }
 
 const broadcast = () => {
@@ -425,6 +426,11 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             mdnsService.setOnDiscoveryUpdate((apis) => {
                 updateBridge({ discovered: apis, scanning: false })
             })
+
+            // Set base URL from the advertised interface
+            const ip = serverState.network.interface || pickBestInterface() || 'localhost'
+            const port = Number.isFinite(mdnsPort) ? mdnsPort : 3000
+            serverState.baseUrl = `http://${ip}:${port}`
         } catch (err) {
             console.error('[Server] mDNS initialization failed:', err)
         }

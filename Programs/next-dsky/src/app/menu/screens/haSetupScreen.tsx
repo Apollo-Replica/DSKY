@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import QRCode from "qrcode"
 import type { ServerState } from "../../../types/serverState"
 
 interface HaSetupScreenProps {
@@ -9,12 +10,18 @@ interface HaSetupScreenProps {
 
 export default function HaSetupScreen({ serverState }: HaSetupScreenProps) {
     const configured = serverState?.ha?.configured === true
+    const haUrl = serverState?.baseUrl ? `${serverState.baseUrl}/ha` : null
 
-    // Build the HA config URL from the current host
-    const [haUrl, setHaUrl] = useState('')
+    const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+
     useEffect(() => {
-        setHaUrl(`${window.location.origin}/ha`)
-    }, [])
+        if (!haUrl) return
+        QRCode.toDataURL(haUrl, {
+            width: 256,
+            margin: 1,
+            color: { dark: '#000', light: '#fff' },
+        }).then(setQrDataUrl).catch(() => {})
+    }, [haUrl])
 
     return (
         <div style={{
@@ -23,7 +30,7 @@ export default function HaSetupScreen({ serverState }: HaSetupScreenProps) {
             alignItems: 'center',
             justifyContent: 'center',
             height: '100%',
-            gap: '2cqh',
+            gap: '1.5cqh',
             textAlign: 'center',
             fontFamily: 'monospace',
         }}>
@@ -35,29 +42,43 @@ export default function HaSetupScreen({ serverState }: HaSetupScreenProps) {
                 Home Assistant
             </div>
 
-            {/* URL display — user navigates here on their phone */}
-            <div style={{
-                padding: '2cqh 3cqw',
-                background: 'rgba(74, 222, 128, 0.08)',
-                border: '1px solid var(--menu-border)',
-                borderRadius: '1cqh',
-                fontSize: '2.8cqh',
-                color: 'var(--menu-highlight)',
-                fontWeight: 600,
-                wordBreak: 'break-all',
-                maxWidth: '90%',
-            }}>
-                {haUrl || '\u2026'}
-            </div>
+            {/* QR code */}
+            {qrDataUrl && (
+                <div style={{
+                    background: '#fff',
+                    padding: '1.2cqh',
+                    borderRadius: '1cqh',
+                    lineHeight: 0,
+                }}>
+                    <img
+                        src={qrDataUrl}
+                        alt="QR code for HA configuration"
+                        style={{ width: '28cqh', height: '28cqh' }}
+                    />
+                </div>
+            )}
+
+            {/* URL below QR */}
+            {haUrl && (
+                <div style={{
+                    fontSize: '2cqh',
+                    color: 'var(--menu-highlight)',
+                    fontWeight: 600,
+                    wordBreak: 'break-all',
+                    maxWidth: '90%',
+                }}>
+                    {haUrl}
+                </div>
+            )}
 
             <div style={{
-                fontSize: '2.8cqh',
+                fontSize: '2.5cqh',
                 color: 'var(--menu-secondary)',
-                maxWidth: '80%',
+                maxWidth: '85%',
             }}>
                 {configured
-                    ? <>Visit this URL to reconfigure <span style={{ color: 'var(--menu-primary)', fontWeight: 600 }}>Home Assistant</span></>
-                    : <>Open this URL on your phone to configure <span style={{ color: 'var(--menu-primary)', fontWeight: 600 }}>Home Assistant</span></>
+                    ? <>Scan to reconfigure</>
+                    : <>Scan to configure</>
                 }
             </div>
 
