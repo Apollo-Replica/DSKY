@@ -1,19 +1,19 @@
 .clientList {
-    position:absolute;
-    bottom:0;
+    position: fixed;
+    top: 16px;
     right: 0;
     display: flex;
-    flex-wrap: wrap-reverse; /* Wrap items from bottom to top */
-    flex-direction: row-reverse; /* Align items from right to left */
-    gap: 16px;
+    flex-direction: column;
+    gap: 8px;
     padding: 16px;
-    justify-content: flex-end; /* Align items to the right */
-    width: 15vw;
+    align-items: center;
+    z-index: 50;
   }
-  
+
 .client-box {
+    position: relative;
     border: 1px solid #ccc;
-    background-color: #f0f8ff; /* Optional: Change to desired color */
+    background-color: #f0f8ff;
     border-radius: 8px;
     padding: 1vh;
     text-align: center;
@@ -23,20 +23,39 @@
 .client-box img.client-flag {
     width: 3vh;
     height: auto;
+    display: block;
 }
 
-.client-box p {
-    width: 3vh;
-    height: auto;
+.client-box .client-unknown {
+    font-size: 3vh;
+    line-height: 1;
+    display: block;
 }
 
 .client-box.you {
-    border: 2px solid #007bff; /* Change to desired color */
+    border: 2px solid #007bff;
     padding: calc(1vh - 1px);
-    background-color: #f0f8ff; /* Optional: Change to desired color */
+    background-color: #f0f8ff;
 }
 
-/* Display clients if aspect ratio bigger than 14:9 */
+.client-count {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #007bff;
+    color: #fff;
+    font-size: 1.4vh;
+    font-weight: 700;
+    min-width: 2.2vh;
+    height: 2.2vh;
+    line-height: 2.2vh;
+    border-radius: 50%;
+    text-align: center;
+    padding: 0 0.4vh;
+    box-sizing: border-box;
+}
+
+/* Display clients if aspect ratio bigger than 15:9 */
 @media (max-aspect-ratio: 15/9) {
     .clientList{
         display: none !important;
