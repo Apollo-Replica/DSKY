@@ -140,10 +140,6 @@ export default function MenuOverlay({
                 display: 'flex',
                 flexDirection: 'column',
                 zIndex: mode === 'screen' ? 1000 : 5,
-                backgroundColor: 'rgba(10, 20, 10, 0.7)',
-                backdropFilter: 'blur(0.5cqw)',
-                WebkitBackdropFilter: 'blur(0.5cqw)',
-                borderRadius: '1.5cqw',
                 outline: 'none',
                 fontFamily: 'monospace',
             }}

@@ -338,8 +338,8 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
           />
 
-          {/* Display content (EL or custom app) */}
-          {renderDisplayContent('overlay')}
+          {/* Display content (EL or custom app) — hidden when menu is open */}
+          {!serverState?.menu?.isOpen && renderDisplayContent('overlay')}
 
           {/* Alarm indicators */}
           <Alarms dskyState={dskyState} opacity={opacityStatus} />
@@ -375,7 +375,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           <Alarms dskyState={dskyState} opacity={opacityStatus} mode="screen" />
         </div>
         <div className="screen-mode-display">
-          {renderDisplayContent('screen')}
+          {!serverState?.menu?.isOpen && renderDisplayContent('screen')}
           <MenuOverlay
             serverState={serverState}
             clients={dskyState?.clients || []}
