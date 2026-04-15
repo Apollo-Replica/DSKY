@@ -1,250 +1,117 @@
 "use client"
 
-import { useEffect, useRef, useState, type RefObject } from "react"
-import type { MenuState, MenuScreen } from "./useMenuNavigation"
-import type { ServerState } from "../../types/serverState"
-import type { DskyState, DskyClient } from "../../types/dsky"
+import { useEffect, useRef } from "react"
+import type { ServerState, MenuScreen } from "../../types/serverState"
+import type { DskyClient } from "../../types/dsky"
 import { SCREEN_AREA } from "./constants"
-import MainScreen from "./screens/mainScreen"
-import SimulateScreen from "./screens/simulateScreen"
-import ConnectScreen from "./screens/connectScreen"
+import { getScreenItems } from "../../menu/menuModel"
+import MenuCard from "./menuCard"
+import MenuGrid from "./menuGrid"
 import CommandsScreen from "./screens/commandsScreen"
-import SettingsScreen from "./screens/settingsScreen"
 import AboutScreen from "./screens/aboutScreen"
-import AppsScreen from "./screens/appsScreen"
-import CalculatorScreen from "./screens/calculatorScreen"
-import ClockScreen from "./screens/clockScreen"
 import GamesScreen from "./screens/gamesScreen"
-import YaagcVersionScreen from "./screens/yaagcVersionScreen"
-import BridgeSelectScreen from "./screens/bridgeSelectScreen"
-import SerialSelectScreen from "./screens/serialSelectScreen"
-import NetworkInterfaceScreen from "./screens/networkInterfaceScreen"
-import HaUrlScreen from "./screens/haUrlScreen"
-import HaTokenScreen from "./screens/haTokenScreen"
-import HaDiscoverScreen from "./screens/haDiscoverScreen"
-import HaEntitiesScreen from "./screens/haEntitiesScreen"
+import HaSetupScreen from "./screens/haSetupScreen"
 import WifiScreen from "./screens/wifiScreen"
 
 interface MenuOverlayProps {
-    menuState: MenuState
-    onClose: () => void
-    onNavigateTo: (screen: MenuScreen) => void
-    onNavigateBack: () => void
-    selectedIndex: number
-    onSetSelectedIndex: (index: number) => void
-    onMoveSelection: (delta: number, maxItems: number) => void
     serverState: ServerState | null
     clients: DskyClient[]
     wsConnected: boolean
-    viewMode: 'screen' | 'full'
-    onCycleViewMode: () => void
     sendMessage: (type: string, data?: Record<string, unknown>) => void
-    sendKey: (key: string) => void
-    dskyState: DskyState
-    appKeyHandlerRef: RefObject<((key: string) => void) | null>
     mode?: 'overlay' | 'screen'
 }
 
+// Card-grid screens rendered generically from menuModel
+const CARD_GRID_SCREENS: Set<MenuScreen> = new Set([
+    'main', 'simulate', 'apps', 'settings',
+    'yaAgcSelect', 'bridgeSelect', 'serialSelect', 'networkInterface',
+])
+
+// WiFi SVG icon for settings screen
+function WifiIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1em', height: '1em' }}>
+            <path d="M12 20h.01" />
+            <path d="M8.5 16.429a5 5 0 0 1 7 0" />
+            <path d="M5 12.859a10 10 0 0 1 14 0" />
+            <path d="M1.5 9.288a15 15 0 0 1 21 0" />
+        </svg>
+    )
+}
 
 export default function MenuOverlay({
-    menuState,
-    onClose,
-    onNavigateTo,
-    onNavigateBack,
-    selectedIndex,
-    onSetSelectedIndex,
-    onMoveSelection,
     serverState,
     clients,
     wsConnected,
-    viewMode,
-    onCycleViewMode,
     sendMessage,
-    sendKey,
-    dskyState,
-    appKeyHandlerRef,
     mode = 'overlay',
 }: MenuOverlayProps) {
     const overlayRef = useRef<HTMLDivElement>(null)
 
-    // HA flow state — lifted here so it persists across screen navigation
-    const [haUrl, setHaUrl] = useState('http://')
-    const [haToken, setHaToken] = useState('')
+    const menuState = serverState?.menu
+    const isOpen = menuState?.isOpen === true
 
     useEffect(() => {
-        if (menuState.isOpen) {
+        if (isOpen) {
             overlayRef.current?.focus()
         }
-    }, [menuState.isOpen])
+    }, [isOpen])
 
-    if (!menuState.isOpen) return null
+    if (!isOpen || !menuState || !serverState) return null
 
-    const isSubScreen = menuState.activeScreen !== 'main'
-    const isAppScreen = menuState.activeScreen === 'calculator'
-        || menuState.activeScreen === 'clock'
-    const isTextInputScreen = menuState.activeScreen === 'haUrl'
-        || menuState.activeScreen === 'haToken'
+    const activeScreen = menuState.activeScreen
+    const selectedIndex = menuState.selectedIndex
+    const isSubScreen = activeScreen !== 'main'
 
     const renderScreen = () => {
-        switch (menuState.activeScreen) {
-            case 'main':
-                return (
-                    <MainScreen
-                        selectedIndex={selectedIndex}
-                        onSelect={onNavigateTo}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        sendMessage={sendMessage}
-                        onClose={onClose}
-                    />
-                )
-            case 'simulate':
-                return (
-                    <SimulateScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        onNavigateTo={onNavigateTo}
-                        sendMessage={sendMessage}
-                        onClose={onClose}
-                    />
-                )
-            case 'connect':
-                return (
-                    <ConnectScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        serverState={serverState}
-                        onNavigateTo={onNavigateTo}
-                        onClose={onClose}
-                    />
-                )
+        // Card-grid screens: render from menuModel
+        if (CARD_GRID_SCREENS.has(activeScreen)) {
+            const items = getScreenItems(activeScreen, serverState, menuState)
+            const columns = activeScreen === 'networkInterface' ? 1 : undefined
+
+            return (
+                <>
+                    {activeScreen === 'bridgeSelect' && serverState.bridge.scanning && (
+                        <div style={{
+                            textAlign: 'center',
+                            fontFamily: 'monospace',
+                            fontSize: '2.8cqh',
+                            color: 'var(--menu-accent)',
+                            marginBottom: '1.5cqh',
+                        }}>
+                            Discovering...
+                        </div>
+                    )}
+                    <MenuGrid columns={columns}>
+                        {items.map((item, i) => (
+                            <MenuCard
+                                key={item.id}
+                                index={i + 1}
+                                icon={item.icon === 'wifi-svg' ? <WifiIcon /> : item.icon}
+                                label={item.label}
+                                badge={item.badge}
+                                badgeActive={item.badgeActive}
+                                selected={selectedIndex === i}
+                                onClick={() => sendMessage('action:menu-select', { index: i })}
+                            />
+                        ))}
+                    </MenuGrid>
+                </>
+            )
+        }
+
+        // Special screens
+        switch (activeScreen) {
             case 'commands':
-                return (
-                    <CommandsScreen serverState={serverState} />
-                )
-            case 'settings':
-                return (
-                    <SettingsScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        onSelect={onNavigateTo}
-                        serverState={serverState}
-                        sendMessage={sendMessage}
-                        viewMode={viewMode}
-                        onCycleViewMode={onCycleViewMode}
-                        onClose={onClose}
-                    />
-                )
+                return <CommandsScreen serverState={serverState} />
             case 'about':
-                return (
-                    <AboutScreen
-                        serverState={serverState}
-                        wsConnected={wsConnected}
-                        clients={clients}
-                    />
-                )
-            case 'apps':
-                return (
-                    <AppsScreen
-                        selectedIndex={selectedIndex}
-                        onSelect={onNavigateTo}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                    />
-                )
-            case 'calculator':
-                return <CalculatorScreen appKeyHandlerRef={appKeyHandlerRef} />
-            case 'clock':
-                return <ClockScreen appKeyHandlerRef={appKeyHandlerRef} />
+                return <AboutScreen serverState={serverState} wsConnected={wsConnected} clients={clients} />
             case 'games':
                 return <GamesScreen />
-            case 'yaagcVersion':
-                return (
-                    <YaagcVersionScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        sendMessage={sendMessage}
-                        onClose={onClose}
-                    />
-                )
-            case 'bridgeSelect':
-                return (
-                    <BridgeSelectScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        sendMessage={sendMessage}
-                        onClose={onClose}
-                        serverState={serverState}
-                    />
-                )
-            case 'serialSelect':
-                return (
-                    <SerialSelectScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        sendMessage={sendMessage}
-                        onNavigateBack={onNavigateBack}
-                        serverState={serverState}
-                    />
-                )
-            case 'networkInterface':
-                return (
-                    <NetworkInterfaceScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        sendMessage={sendMessage}
-                        onNavigateBack={onNavigateBack}
-                        serverState={serverState}
-                    />
-                )
-            case 'haUrl':
-                return (
-                    <HaUrlScreen
-                        onNavigateTo={onNavigateTo}
-                        onNavigateBack={onNavigateBack}
-                        haUrl={haUrl}
-                        onHaUrlChange={setHaUrl}
-                        appKeyHandlerRef={appKeyHandlerRef}
-                    />
-                )
-            case 'haToken':
-                return (
-                    <HaTokenScreen
-                        onNavigateBack={onNavigateBack}
-                        sendMessage={sendMessage}
-                        onNavigateTo={onNavigateTo}
-                        haUrl={haUrl}
-                        haToken={haToken}
-                        onHaTokenChange={setHaToken}
-                        appKeyHandlerRef={appKeyHandlerRef}
-                    />
-                )
-            case 'haDiscover':
-                return (
-                    <HaDiscoverScreen
-                        serverState={serverState}
-                        onNavigateBack={onNavigateBack}
-                        onNavigateTo={onNavigateTo}
-                    />
-                )
-            case 'haEntities':
-                return (
-                    <HaEntitiesScreen
-                        selectedIndex={selectedIndex}
-                        onSetSelectedIndex={onSetSelectedIndex}
-                        sendMessage={sendMessage}
-                        onClose={onClose}
-                        onNavigateBack={onNavigateBack}
-                        serverState={serverState}
-                        haUrl={haUrl}
-                        haToken={haToken}
-                    />
-                )
+            case 'haSetup':
+                return <HaSetupScreen serverState={serverState} />
             case 'wifi':
-                return (
-                    <WifiScreen
-                        serverState={serverState}
-                        onNavigateBack={onNavigateBack}
-                    />
-                )
+                return <WifiScreen serverState={serverState} />
             default:
                 return null
         }
@@ -294,7 +161,7 @@ export default function MenuOverlay({
                 zIndex: 10,
             }} />
 
-            {/* Content area — full height flex column */}
+            {/* Content area */}
             <div style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -303,7 +170,7 @@ export default function MenuOverlay({
                 boxSizing: 'border-box',
                 overflow: 'hidden',
             }}>
-                {/* Scrollable screen content — takes all available space */}
+                {/* Scrollable screen content */}
                 <div style={{
                     flex: 1,
                     overflowY: 'auto',
@@ -313,24 +180,22 @@ export default function MenuOverlay({
                     {renderScreen()}
                 </div>
 
-                {/* Nav hints — compact, pinned at bottom */}
-                {!isAppScreen && !isTextInputScreen && (
-                    <div style={{
-                        flexShrink: 0,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        gap: '2.5cqw',
-                        marginTop: '1.5cqh',
-                        fontSize: '3cqh',
-                        color: 'var(--menu-secondary)',
-                        flexWrap: 'wrap',
-                    }}>
-                        <span><K>+</K>/<K>-</K> nav</span>
-                        <span><K>ENTR</K> sel</span>
-                        {isSubScreen && <span><K>CLR</K> back</span>}
-                        <span><K>K.REL</K> close</span>
-                    </div>
-                )}
+                {/* Nav hints */}
+                <div style={{
+                    flexShrink: 0,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '2.5cqw',
+                    marginTop: '1.5cqh',
+                    fontSize: '3cqh',
+                    color: 'var(--menu-secondary)',
+                    flexWrap: 'wrap',
+                }}>
+                    <span><K>+</K>/<K>-</K> nav</span>
+                    <span><K>ENTR</K> sel</span>
+                    {isSubScreen && <span><K>CLR</K> back</span>}
+                    <span><K>K.REL</K> close</span>
+                </div>
             </div>
         </div>
     )

@@ -55,9 +55,150 @@
     box-sizing: border-box;
 }
 
-/* Display clients if aspect ratio bigger than 15:9 */
+/* Apollo-style toggle switch — fixed left sidebar */
+.view-toggle {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 50;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.toggle-panel {
+    position: relative;
+    width: 5.5vh;
+    padding: 1.1vh 0.6vh 1.4vh;
+    background: linear-gradient(160deg, #8a8a8a 0%, #6a6a6a 40%, #585858 100%);
+    border-radius: 0.4vh;
+    border: 1px solid #999;
+    box-shadow:
+        0 2px 6px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8vh;
+}
+
+.toggle-screw {
+    position: absolute;
+    width: 0.7vh;
+    height: 0.7vh;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #999, #5a5a5a);
+    box-shadow: inset 0 0 1px rgba(0,0,0,0.8);
+}
+/* Phillips cross */
+.toggle-screw::before,
+.toggle-screw::after {
+    content: '';
+    position: absolute;
+    background: #444;
+    border-radius: 0.5px;
+}
+.toggle-screw::before {
+    top: 30%; left: 45%; width: 10%; height: 40%;
+}
+.toggle-screw::after {
+    top: 45%; left: 30%; width: 40%; height: 10%;
+}
+
+.toggle-label {
+    font-family: 'Gorton', 'Arial Narrow', sans-serif;
+    font-size: 1vh;
+    font-weight: 700;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 0.15vh;
+    text-shadow: 0 -1px 0 rgba(0,0,0,0.4);
+    transition: color 0.15s;
+}
+
+.toggle-label-active {
+    color: #fff;
+}
+
+.toggle-housing {
+    width: 2.4vh;
+    height: 3.2vh;
+    background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
+    border-radius: 0.3vh;
+    border: 1px solid #444;
+    box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.8),
+        0 1px 0 rgba(255,255,255,0.05);
+    position: relative;
+    overflow: visible;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* The lever container is centered in the housing; pivot is at the top (the knob) */
+.toggle-lever {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1vh;
+    height: 2vh;
+    margin-left: -0.5vh;
+    margin-top: -0.4vh;
+    transform-origin: center top;
+    transition: transform 0.2s ease;
+}
+
+.toggle-lever.toggle-up {
+    transform: rotate(180deg);
+}
+
+.toggle-lever.toggle-down {
+    transform: rotate(0deg);
+}
+
+/* Red knob — the pivot point, sits at the top of the lever */
+.toggle-knob {
+    position: absolute;
+    top: -0.4vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1.4vh;
+    height: 0.8vh;
+    background: linear-gradient(180deg, #d44 0%, #a22 50%, #811 100%);
+    border-radius: 0.25vh;
+    box-shadow:
+        0 -1px 2px rgba(255,100,100,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.2);
+    z-index: 1;
+}
+
+/* Metal shaft — extends down from the knob */
+.toggle-lever::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0.8vh;
+    height: 100%;
+    background: linear-gradient(90deg, #777 0%, #aaa 30%, #bbb 50%, #aaa 70%, #777 100%);
+    border-radius: 0.15vh;
+    box-shadow:
+        0 0 3px rgba(0,0,0,0.5),
+        inset 0 0 1px rgba(255,255,255,0.3);
+}
+
+.view-toggle:hover .toggle-panel {
+    border-color: #666;
+}
+.view-toggle:hover .toggle-knob {
+    background: linear-gradient(180deg, #e55 0%, #b33 50%, #922 100%);
+}
+
+/* Hide sidebar elements on narrow screens */
 @media (max-aspect-ratio: 15/9) {
-    .clientList{
+    .clientList,
+    .view-toggle {
         display: none !important;
     }
 }

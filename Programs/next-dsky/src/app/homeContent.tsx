@@ -3,29 +3,15 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { AUDIO_LOAD, NO_CONN, NO_CONN_UHOH } from "../utils/dskyStates";
 import { chunkedUpdate, getChangedChunks } from "@/utils/chunks";
-import { useSearchParams } from 'next/navigation'
-import ELDisplay from "./elDisplay";
+import { useSearchParams, useRouter } from 'next/navigation'
 import Alarms from "./alarms";
 import ClientList from "./clientList";
 import MenuOverlay from "./menu/menuOverlay";
-import { useMenuNavigation } from "./menu/useMenuNavigation";
-import { MAIN_SCREEN_ITEM_COUNT } from "./menu/screens/mainScreen";
-import { SIMULATE_SCREEN_ITEM_COUNT } from "./menu/screens/simulateScreen";
-import { getConnectScreenItemCount } from "./menu/screens/connectScreen";
-import { getSettingsScreenItemCount } from "./menu/screens/settingsScreen";
-import { APPS_SCREEN_ITEM_COUNT } from "./menu/screens/appsScreen";
-import { YAAGC_VERSION_SCREEN_ITEM_COUNT } from "./menu/screens/yaagcVersionScreen";
-import { getBridgeSelectScreenItemCount } from "./menu/screens/bridgeSelectScreen";
-import { getSerialSelectScreenItemCount } from "./menu/screens/serialSelectScreen";
-import { getNetworkInterfaceScreenItemCount } from "./menu/screens/networkInterfaceScreen";
-import { getHaEntitiesScreenItemCount } from "./menu/screens/haEntitiesScreen";
-import { WIFI_SCREEN_ITEM_COUNT } from "./menu/screens/wifiScreen";
 import DskyKeyboard from "./menu/dskyKeyboard";
 import DskyDisplayWrapper from "./menu/dskyDisplayWrapper";
 import { SCREEN_AREA } from "./menu/constants";
+import { CUSTOM_APP_RENDERERS } from "./appRegistry";
 import type { ServerState } from "../types/serverState";
-
-type ViewMode = 'screen' | 'full'
 
 /** Aspect ratio of the DSKY chassis image */
 const DSKY_AR = 484 / 558
@@ -39,12 +25,28 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   let displayType = envDisplay
   if(searchParams.get('display')) displayType = searchParams.get('display') as string
 
+  // View mode: query param ?view=screen overrides default 'full'
+  const viewParam = searchParams.get('view')
+  const [viewMode, setViewMode] = useState<'full' | 'screen'>(viewParam === 'screen' ? 'screen' : 'full')
+
+  const router = useRouter()
+  const toggleViewMode = useCallback(() => {
+    setViewMode(prev => {
+      const next = prev === 'full' ? 'screen' : 'full'
+      const params = new URLSearchParams(window.location.search)
+      if (next === 'full') params.delete('view')
+      else params.set('view', 'screen')
+      const qs = params.toString()
+      router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false })
+      return next
+    })
+  }, [router])
+
   const initialState = AUDIO_LOAD
   const [dskyState,setDskyState] = useState(initialState)
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
   const [audioFiles, setAudioFiles] = useState<Record<string, AudioBuffer> | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('full')
   const [serverState, setServerState] = useState<ServerState | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const mountedRef = useRef(true)
@@ -63,7 +65,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     return () => window.removeEventListener('resize', update)
   }, [])
 
-  // --- sendKey and menu hook ---
+  // --- sendKey and sendMessage ---
 
   const sendKey = useCallback((key: string) => {
     const ws = wsRef.current
@@ -79,121 +81,6 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     }
   }, [])
 
-  const toggleViewMode = useCallback(() => {
-    setViewMode(prev => prev === 'full' ? 'screen' : 'full')
-  }, [])
-
-  const menu = useMenuNavigation({ sendKey })
-
-  // Auto-open menu when server is idle (no integration active)
-  const menuOpenedForIdleRef = useRef(false)
-  useEffect(() => {
-    if (serverState?.app?.id === null && !menuOpenedForIdleRef.current) {
-      menuOpenedForIdleRef.current = true
-      menu.openMenu()
-    }
-    if (serverState?.app?.id !== null) {
-      menuOpenedForIdleRef.current = false
-    }
-  }, [serverState?.app?.id, menu.openMenu])
-
-  const getItemCountForScreen = useCallback(() => {
-    switch (menu.menuState.activeScreen) {
-      case 'main': return MAIN_SCREEN_ITEM_COUNT
-      case 'simulate': return SIMULATE_SCREEN_ITEM_COUNT
-      case 'connect': return getConnectScreenItemCount(serverState)
-      case 'settings': return getSettingsScreenItemCount(serverState)
-      case 'apps': return APPS_SCREEN_ITEM_COUNT
-      case 'yaagcVersion': return YAAGC_VERSION_SCREEN_ITEM_COUNT
-      case 'bridgeSelect': return getBridgeSelectScreenItemCount(serverState)
-      case 'serialSelect': return getSerialSelectScreenItemCount(serverState)
-      case 'networkInterface': return getNetworkInterfaceScreenItemCount(serverState)
-      case 'haEntities': return getHaEntitiesScreenItemCount(serverState)
-      case 'wifi': return WIFI_SCREEN_ITEM_COUNT
-      case 'haUrl':
-      case 'haToken':
-      case 'haDiscover':
-        return 0 // text input / loading screens handle their own keys
-      default: return 0 // app screens (calculator, clock, games) handle their own keys
-    }
-  }, [menu.menuState.activeScreen, serverState])
-
-  // Refs for latest menu functions (avoids stale closures)
-  const menuRef = useRef(menu)
-  menuRef.current = menu
-  const getItemCountRef = useRef(getItemCountForScreen)
-  getItemCountRef.current = getItemCountForScreen
-
-  // App key handler — apps register their own handler to intercept keys
-  const appKeyHandlerRef = useRef<((key: string) => void) | null>(null)
-
-  // Triple-N detection inside apps (to navigate back to menu)
-  // Counts consecutive 'n' presses — no timer, no buffering, instant action
-  const appNounStreak = useRef(0)
-
-  const handleMenuKeyRef = useRef((key: string) => {})
-  handleMenuKeyRef.current = (key: string) => {
-    if (appKeyHandlerRef.current) {
-      if (key === 'n') {
-        appNounStreak.current++
-        if (appNounStreak.current >= 3) {
-          appNounStreak.current = 0
-          menuRef.current.navigateBack()
-          return
-        }
-      } else {
-        appNounStreak.current = 0
-      }
-      appKeyHandlerRef.current(key)
-      return
-    }
-
-    const m = menuRef.current
-    const maxItems = getItemCountRef.current()
-    switch (key) {
-      case '+':
-      case 'v':
-        if (maxItems > 0) m.moveSelection(-1, maxItems)
-        break
-      case '-':
-      case 'n':
-        if (maxItems > 0) m.moveSelection(1, maxItems)
-        break
-      case 'e':
-      case 'p': {
-        const selected = document.querySelector<HTMLElement>('[data-menu-card="true"][aria-selected="true"]')
-        if (selected) {
-          selected.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-        }
-        break
-      }
-      case 'c':
-      case 'r':
-        m.navigateBack()
-        break
-      case 'k':
-        m.closeMenu()
-        break
-      default:
-        if (/^[1-9]$/.test(key)) {
-          const idx = parseInt(key) - 1
-          if (idx < maxItems) {
-            m.setSelectedIndex(idx)
-          }
-        }
-    }
-  }
-
-  const sendKeyWithMenu = useCallback((key: string) => {
-    const consumed = menuRef.current.handleKeyEvent(key)
-    if (consumed) {
-      if (menuRef.current.menuState.isOpen) {
-        handleMenuKeyRef.current(key)
-      }
-      return
-    }
-    sendKey(key)
-  }, [sendKey])
 
   // --- Audio loading ---
 
@@ -301,7 +188,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       if(queuedTimeout) clearTimeout(queuedTimeout)
       const newState = JSON.parse(event.data);
 
-      // Save server state (for menu panels)
+      // Save server state
       if (newState.serverState) {
         setServerState(newState.serverState)
       }
@@ -321,28 +208,23 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
 
     ws.addEventListener('message', handleMessage)
 
+    // All key presses go to server — server decides whether menu or app handles them
     const relayKeyPress = (event: KeyboardEvent) => {
       if (event.repeat) return
       const key = event.key
-
       if (key.length === 1) {
-        const consumed = menuRef.current.handleKeyEvent(key)
-        if (consumed) {
-          if (menuRef.current.menuState.isOpen) {
-            handleMenuKeyRef.current(key)
-          }
-          event.preventDefault()
-          return
+        const currentWs = wsRef.current
+        if (currentWs?.readyState === WebSocket.OPEN) {
+          currentWs.send(key)
         }
-      }
-
-      const currentWs = wsRef.current
-      if(key.length == 1 && currentWs?.readyState === WebSocket.OPEN){
-        currentWs.send(key)
+        // Prevent default when menu is open to avoid page interactions
+        if (serverState?.menu?.isOpen) {
+          event.preventDefault()
+        }
       }
     }
     const relayKeyRelease = (event: KeyboardEvent) => {
-      if (menuRef.current.menuState.isOpen) return
+      if (serverState?.menu?.isOpen) return
       const currentWs = wsRef.current
       if((event.key == 'p' || event.key == 'P') && currentWs?.readyState === WebSocket.OPEN){
         currentWs.send('O')
@@ -356,7 +238,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       window.removeEventListener('keydown', relayKeyPress);
       window.removeEventListener('keyup', relayKeyRelease);
     };
-  }, [wsConnected, audioFiles, audioContext]);
+  }, [wsConnected, audioFiles, audioContext, serverState?.menu?.isOpen]);
 
   // --- No-connection state animation ---
 
@@ -392,13 +274,39 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     };
   }, [wsConnected, audioFiles, audioContext]);
 
-  // --- Render ---
+  // --- Render helpers ---
 
   const opacityEL = dskyState.Standby ? 0 : (dskyState.DisplayBrightness ?? 127) / 127
   const opacityStatus = (dskyState.StatusBrightness ?? 127) / 127
 
+  // Determine which component to render in the display area
+  const appId = serverState?.app?.id
+  const CustomAppComponent = appId ? CUSTOM_APP_RENDERERS[appId] : undefined
+
+  const renderDisplayContent = (mode: 'overlay' | 'screen') => {
+    if (CustomAppComponent && serverState) {
+      // Custom app (calculator, clock) — render its own component
+      return (
+        <div style={{
+          position: 'absolute',
+          left: mode === 'screen' ? 0 : `${SCREEN_AREA.left}%`,
+          top: mode === 'screen' ? 0 : `${SCREEN_AREA.top}%`,
+          width: mode === 'screen' ? '100%' : `${SCREEN_AREA.right - SCREEN_AREA.left}%`,
+          height: mode === 'screen' ? '100%' : `${SCREEN_AREA.bottom - SCREEN_AREA.top}%`,
+          zIndex: 3,
+          overflow: 'hidden',
+          containerType: 'size',
+        }}>
+          <CustomAppComponent serverState={serverState} />
+        </div>
+      )
+    }
+    // Default: EL Display
+    return <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} mode={mode} containerRatio={containerRatio} />
+  }
+
   if (viewMode === 'full') {
-    // Full DSKY skin — same layout as menu overlay
+    // Full DSKY skin
     return (
       <main style={{
         minHeight: '100vh',
@@ -413,7 +321,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           aspectRatio: '484 / 558',
         }}>
 
-          {/* Screen background color — matches display area, behind the PNG */}
+          {/* Screen background color */}
           <div style={{
             position: 'absolute',
             left: `${SCREEN_AREA.left}%`,
@@ -424,48 +332,37 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             zIndex: 0,
           }} />
 
-          {/* DSKY chassis image — on top of green bg, transparent screen area shows through */}
+          {/* DSKY chassis image */}
           <img
             src="./dsky.png"
             alt="DSKY unit"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
           />
 
-          {/* EL Display — positionable wrapper */}
-          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} mode="overlay" containerRatio={containerRatio} />
+          {/* Display content (EL or custom app) */}
+          {renderDisplayContent('overlay')}
 
           {/* Alarm indicators */}
           <Alarms dskyState={dskyState} opacity={opacityStatus} />
 
           {/* Keyboard buttons */}
-          <DskyKeyboard sendKey={sendKeyWithMenu} />
+          <DskyKeyboard sendKey={sendKey} />
 
-          {/* Menu overlay — inside the DSKY container, over the display area */}
+          {/* Menu overlay */}
           <MenuOverlay
-            menuState={menu.menuState}
-            onClose={menu.closeMenu}
-            onNavigateTo={menu.navigateTo}
-            onNavigateBack={menu.navigateBack}
-            selectedIndex={menu.menuState.selectedIndex}
-            onSetSelectedIndex={menu.setSelectedIndex}
-            onMoveSelection={menu.moveSelection}
             serverState={serverState}
             clients={dskyState?.clients || []}
             wsConnected={wsConnected}
-            viewMode={viewMode}
-            onCycleViewMode={toggleViewMode}
             sendMessage={sendMessage}
-            sendKey={sendKeyWithMenu}
-            dskyState={dskyState}
-            appKeyHandlerRef={appKeyHandlerRef}
           />
         </div>
         <ClientList clients={dskyState?.clients || []} />
+        <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} />
       </main>
     )
   }
 
-  // Screen-only mode — display with optional alarms sidebar
+  // Screen-only mode
   return (
     <main style={{
       minHeight: '100vh',
@@ -475,37 +372,49 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
     }}>
       <div className="screen-mode-layout">
-        {/* Alarms sidebar — hidden by default, shown on wide screens via CSS */}
         <div className="screen-mode-alarms">
           <Alarms dskyState={dskyState} opacity={opacityStatus} mode="screen" />
         </div>
-
-        {/* Display area — holds ELDisplay and menu overlay */}
         <div className="screen-mode-display">
-          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} mode="screen" />
-          {/* Menu overlay — covers the display area in screen mode */}
+          {renderDisplayContent('screen')}
           <MenuOverlay
-            menuState={menu.menuState}
-            onClose={menu.closeMenu}
-            onNavigateTo={menu.navigateTo}
-            onNavigateBack={menu.navigateBack}
-            selectedIndex={menu.menuState.selectedIndex}
-            onSetSelectedIndex={menu.setSelectedIndex}
-            onMoveSelection={menu.moveSelection}
             serverState={serverState}
             clients={dskyState?.clients || []}
             wsConnected={wsConnected}
-            viewMode={viewMode}
-            onCycleViewMode={toggleViewMode}
             sendMessage={sendMessage}
-            sendKey={sendKeyWithMenu}
-            dskyState={dskyState}
-            appKeyHandlerRef={appKeyHandlerRef}
             mode="screen"
           />
         </div>
       </div>
       <ClientList clients={dskyState?.clients || []} />
+      <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} />
     </main>
   );
+}
+
+function ViewToggle({ viewMode, onToggle }: { viewMode: 'full' | 'screen'; onToggle: () => void }) {
+  const isFull = viewMode === 'full'
+  return (
+    <div className="view-toggle" onClick={onToggle} title={isFull ? 'Screen only' : 'Full DSKY'}>
+      <div className="toggle-panel">
+        {/* Corner screws */}
+        <div className="toggle-screw" style={{ top: 3, left: 3 }} />
+        <div className="toggle-screw" style={{ top: 3, right: 3 }} />
+        <div className="toggle-screw" style={{ bottom: 3, left: 3 }} />
+        <div className="toggle-screw" style={{ bottom: 3, right: 3 }} />
+
+        {/* Fixed labels — both always visible */}
+        <div className={`toggle-label ${isFull ? 'toggle-label-active' : ''}`}>FULL</div>
+
+        {/* Switch housing + lever */}
+        <div className="toggle-housing">
+          <div className={`toggle-lever ${isFull ? 'toggle-up' : 'toggle-down'}`}>
+            <div className="toggle-knob" />
+          </div>
+        </div>
+
+        <div className={`toggle-label ${!isFull ? 'toggle-label-active' : ''}`}>SCR</div>
+      </div>
+    </div>
+  )
 }

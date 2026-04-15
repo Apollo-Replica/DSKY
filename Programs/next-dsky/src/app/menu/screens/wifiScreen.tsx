@@ -1,27 +1,13 @@
 "use client"
 
-import { useEffect, useRef } from "react"
 import type { ServerState } from "../../../types/serverState"
 
 interface WifiScreenProps {
     serverState: ServerState | null
-    onNavigateBack: () => void
 }
 
-export const WIFI_SCREEN_ITEM_COUNT = 0
-
-export default function WifiScreen({ serverState, onNavigateBack }: WifiScreenProps) {
+export default function WifiScreen({ serverState }: WifiScreenProps) {
     const running = serverState?.wifi?.running === true
-    const sawRunning = useRef(false)
-
-    // Only navigate back after we've seen it running then stop
-    useEffect(() => {
-        if (running) {
-            sawRunning.current = true
-        } else if (sawRunning.current) {
-            onNavigateBack()
-        }
-    }, [running, onNavigateBack])
 
     return (
         <div style={{
@@ -67,7 +53,7 @@ export default function WifiScreen({ serverState, onNavigateBack }: WifiScreenPr
                 fontSize: '2.2cqh',
                 color: 'var(--menu-accent)',
             }}>
-                {running ? 'Waiting for wifi-connect…' : 'Done'}
+                {running ? 'Waiting for wifi-connect\u2026' : 'Done'}
             </div>
         </div>
     )

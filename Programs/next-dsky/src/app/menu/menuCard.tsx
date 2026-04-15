@@ -44,6 +44,7 @@ export default function MenuCard({
                 boxShadow: selected ? '0 0 12px rgba(74, 222, 128, 0.25)' : 'none',
                 WebkitTapHighlightColor: 'transparent',
                 userSelect: 'none',
+                outline: 'none',
             }}
             onClick={onClick}
             role="menuitem"
