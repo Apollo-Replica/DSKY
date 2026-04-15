@@ -14,10 +14,16 @@ import { SIMULATE_SCREEN_ITEM_COUNT } from "./menu/screens/simulateScreen";
 import { getConnectScreenItemCount } from "./menu/screens/connectScreen";
 import { getSettingsScreenItemCount } from "./menu/screens/settingsScreen";
 import { APPS_SCREEN_ITEM_COUNT } from "./menu/screens/appsScreen";
+import { YAAGC_VERSION_SCREEN_ITEM_COUNT } from "./menu/screens/yaagcVersionScreen";
+import { getBridgeSelectScreenItemCount } from "./menu/screens/bridgeSelectScreen";
+import { getSerialSelectScreenItemCount } from "./menu/screens/serialSelectScreen";
+import { getNetworkInterfaceScreenItemCount } from "./menu/screens/networkInterfaceScreen";
+import { getHaEntitiesScreenItemCount } from "./menu/screens/haEntitiesScreen";
+import { WIFI_SCREEN_ITEM_COUNT } from "./menu/screens/wifiScreen";
 import DskyKeyboard from "./menu/dskyKeyboard";
 import DskyDisplayWrapper from "./menu/dskyDisplayWrapper";
 import { SCREEN_AREA } from "./menu/constants";
-import type { ConfigState } from "../types/config";
+import type { ServerState } from "../types/serverState";
 
 type ViewMode = 'screen' | 'full'
 
@@ -39,11 +45,10 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   const [audioFiles, setAudioFiles] = useState<Record<string, AudioBuffer> | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('full')
-  const [configState, setConfigState] = useState<ConfigState | null>(null)
+  const [serverState, setServerState] = useState<ServerState | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const mountedRef = useRef(true)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const hasRedirectedRef = useRef(false)
 
   // Track how much the DSKY container has shrunk on narrow viewports (1 = full size)
   const [containerRatio, setContainerRatio] = useState(1)
@@ -67,7 +72,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     }
   }, [])
 
-  const sendConfigMessage = useCallback((type: string, data?: Record<string, unknown>) => {
+  const sendMessage = useCallback((type: string, data?: Record<string, unknown>) => {
     const ws = wsRef.current
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type, ...data }))
@@ -80,29 +85,38 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
 
   const menu = useMenuNavigation({ sendKey })
 
-  // When server sends 'source' step, open menu instead (only once)
-  const menuOpenedForSourceRef = useRef(false)
+  // Auto-open menu when server is idle (no integration active)
+  const menuOpenedForIdleRef = useRef(false)
   useEffect(() => {
-    const configReady = configState?.ready !== false
-    if (!configReady && configState && configState.step === 'source' && !menuOpenedForSourceRef.current) {
-      menuOpenedForSourceRef.current = true
+    if (serverState?.app?.id === null && !menuOpenedForIdleRef.current) {
+      menuOpenedForIdleRef.current = true
       menu.openMenu()
     }
-    if (configReady) {
-      menuOpenedForSourceRef.current = false
+    if (serverState?.app?.id !== null) {
+      menuOpenedForIdleRef.current = false
     }
-  }, [configState?.step, configState?.ready, menu.openMenu])
+  }, [serverState?.app?.id, menu.openMenu])
 
   const getItemCountForScreen = useCallback(() => {
     switch (menu.menuState.activeScreen) {
       case 'main': return MAIN_SCREEN_ITEM_COUNT
       case 'simulate': return SIMULATE_SCREEN_ITEM_COUNT
-      case 'connect': return getConnectScreenItemCount(configState)
-      case 'settings': return getSettingsScreenItemCount()
+      case 'connect': return getConnectScreenItemCount(serverState)
+      case 'settings': return getSettingsScreenItemCount(serverState)
       case 'apps': return APPS_SCREEN_ITEM_COUNT
+      case 'yaagcVersion': return YAAGC_VERSION_SCREEN_ITEM_COUNT
+      case 'bridgeSelect': return getBridgeSelectScreenItemCount(serverState)
+      case 'serialSelect': return getSerialSelectScreenItemCount(serverState)
+      case 'networkInterface': return getNetworkInterfaceScreenItemCount(serverState)
+      case 'haEntities': return getHaEntitiesScreenItemCount(serverState)
+      case 'wifi': return WIFI_SCREEN_ITEM_COUNT
+      case 'haUrl':
+      case 'haToken':
+      case 'haDiscover':
+        return 0 // text input / loading screens handle their own keys
       default: return 0 // app screens (calculator, clock, games) handle their own keys
     }
-  }, [menu.menuState.activeScreen, configState])
+  }, [menu.menuState.activeScreen, serverState])
 
   // Refs for latest menu functions (avoids stale closures)
   const menuRef = useRef(menu)
@@ -287,14 +301,9 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       if(queuedTimeout) clearTimeout(queuedTimeout)
       const newState = JSON.parse(event.data);
 
-      // Always save config state (for wizard and menu panels)
-      if (newState.config) {
-        setConfigState(newState.config)
-      }
-
-      // If config not ready, don't process DSKY display state
-      if (newState.config && !newState.config.ready) {
-        return
+      // Save server state (for menu panels)
+      if (newState.serverState) {
+        setServerState(newState.serverState)
       }
 
       const changedChunks = getChangedChunks(hookData.lastState,newState)
@@ -405,17 +414,15 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
         }}>
 
           {/* Screen background color — matches display area, behind the PNG */}
-          {configState?.ready && (
-            <div style={{
-              position: 'absolute',
-              left: `${SCREEN_AREA.left}%`,
-              top: `${SCREEN_AREA.top}%`,
-              width: `${SCREEN_AREA.width}%`,
-              height: `${SCREEN_AREA.height}%`,
-              backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
-              zIndex: 0,
-            }} />
-          )}
+          <div style={{
+            position: 'absolute',
+            left: `${SCREEN_AREA.left}%`,
+            top: `${SCREEN_AREA.top}%`,
+            width: `${SCREEN_AREA.width}%`,
+            height: `${SCREEN_AREA.height}%`,
+            backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
+            zIndex: 0,
+          }} />
 
           {/* DSKY chassis image — on top of green bg, transparent screen area shows through */}
           <img
@@ -424,10 +431,8 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
           />
 
-          {/* EL Display — positionable wrapper (hidden when menu is open) */}
-          {!menu.menuState.isOpen && (
-            <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="overlay" containerRatio={containerRatio} />
-          )}
+          {/* EL Display — positionable wrapper */}
+          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} mode="overlay" containerRatio={containerRatio} />
 
           {/* Alarm indicators */}
           <Alarms dskyState={dskyState} opacity={opacityStatus} />
@@ -435,29 +440,27 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           {/* Keyboard buttons */}
           <DskyKeyboard sendKey={sendKeyWithMenu} />
 
-          {/* Client list */}
-          <ClientList clients={dskyState?.clients || []} />
-
           {/* Menu overlay — inside the DSKY container, over the display area */}
           <MenuOverlay
-          menuState={menu.menuState}
-          onClose={menu.closeMenu}
-          onNavigateTo={menu.navigateTo}
-          onNavigateBack={menu.navigateBack}
-          selectedIndex={menu.menuState.selectedIndex}
-          onSetSelectedIndex={menu.setSelectedIndex}
-          onMoveSelection={menu.moveSelection}
-          configState={configState}
-          clients={dskyState?.clients || []}
-          wsConnected={wsConnected}
-          viewMode={viewMode}
-          onCycleViewMode={toggleViewMode}
-          sendConfigMessage={sendConfigMessage}
-          sendKey={sendKeyWithMenu}
-          dskyState={dskyState}
-          appKeyHandlerRef={appKeyHandlerRef}
-        />
+            menuState={menu.menuState}
+            onClose={menu.closeMenu}
+            onNavigateTo={menu.navigateTo}
+            onNavigateBack={menu.navigateBack}
+            selectedIndex={menu.menuState.selectedIndex}
+            onSetSelectedIndex={menu.setSelectedIndex}
+            onMoveSelection={menu.moveSelection}
+            serverState={serverState}
+            clients={dskyState?.clients || []}
+            wsConnected={wsConnected}
+            viewMode={viewMode}
+            onCycleViewMode={toggleViewMode}
+            sendMessage={sendMessage}
+            sendKey={sendKeyWithMenu}
+            dskyState={dskyState}
+            appKeyHandlerRef={appKeyHandlerRef}
+          />
         </div>
+        <ClientList clients={dskyState?.clients || []} />
       </main>
     )
   }
@@ -479,9 +482,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
 
         {/* Display area — holds ELDisplay and menu overlay */}
         <div className="screen-mode-display">
-          {!menu.menuState.isOpen && (
-            <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} configState={configState} sendConfigMessage={sendConfigMessage} mode="screen" />
-          )}
+          <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} mode="screen" />
           {/* Menu overlay — covers the display area in screen mode */}
           <MenuOverlay
             menuState={menu.menuState}
@@ -491,12 +492,12 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             selectedIndex={menu.menuState.selectedIndex}
             onSetSelectedIndex={menu.setSelectedIndex}
             onMoveSelection={menu.moveSelection}
-            configState={configState}
+            serverState={serverState}
             clients={dskyState?.clients || []}
             wsConnected={wsConnected}
             viewMode={viewMode}
             onCycleViewMode={toggleViewMode}
-            sendConfigMessage={sendConfigMessage}
+            sendMessage={sendMessage}
             sendKey={sendKeyWithMenu}
             dskyState={dskyState}
             appKeyHandlerRef={appKeyHandlerRef}
