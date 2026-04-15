@@ -1,6 +1,6 @@
 @echo off 
 
-setlocal
+setlocal enabledelayedexpansion
 
 set "PORT=3000"
 set "URL=http://localhost:%PORT%"
@@ -30,7 +30,7 @@ if errorlevel 1 (
         )
     )
 
-    if "%NEEDS_BUILD%"=="1" (
+    if "!NEEDS_BUILD!"=="1" (
         rem Open browser once the server starts (runs in background)
         start "" /B powershell -NoProfile -Command "$p=%PORT%; $u='%URL%'; for($i=0; $i -lt 60; $i++){ if(Test-NetConnection -ComputerName 'localhost' -Port $p -InformationLevel Quiet){ Start-Process $u; exit 0 }; Start-Sleep -Seconds 1 }"
         call npm run build
