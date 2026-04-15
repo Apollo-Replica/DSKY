@@ -2,11 +2,13 @@
 
 import MenuCard from "../menuCard"
 import MenuGrid from "../menuGrid"
+import type { MenuScreen } from "../useMenuNavigation"
 
 interface SimulateScreenProps {
     selectedIndex: number
     onSetSelectedIndex: (index: number) => void
-    sendConfigMessage: (type: string, data?: Record<string, unknown>) => void
+    onNavigateTo: (screen: MenuScreen) => void
+    sendMessage: (type: string, data?: Record<string, unknown>) => void
     onClose: () => void
 }
 
@@ -14,31 +16,32 @@ interface SimulatorDef {
     id: string
     icon: string
     label: string
-    needsConfig?: string
+    configScreen?: MenuScreen
 }
 
 const SIMULATORS: SimulatorDef[] = [
-    { id: 'yaagc',   icon: '\u25B3', label: 'yaAGC',   needsConfig: 'yaagc' },
+    { id: 'yaagc',   icon: '\u25B3', label: 'yaAGC',   configScreen: 'yaagcVersion' },
     { id: 'nassp',   icon: '\u2609', label: 'NASSP' },
     { id: 'reentry', icon: '\u2604', label: 'REENTRY' },
     { id: 'ksp',     icon: '\u2641', label: 'KSP' },
-    { id: 'bridge',  icon: '\u21C4', label: 'BRIDGE',  needsConfig: 'bridge' },
+    { id: 'bridge',  icon: '\u21C4', label: 'BRIDGE',  configScreen: 'bridgeSelect' },
 ]
 
 export default function SimulateScreen({
     selectedIndex,
     onSetSelectedIndex,
-    sendConfigMessage,
+    onNavigateTo,
+    sendMessage,
     onClose,
 }: SimulateScreenProps) {
 
     const handleSelect = (sim: SimulatorDef) => {
-        if (sim.needsConfig) {
-            sendConfigMessage('config:reset-and-goto', { step: sim.needsConfig })
+        if (sim.configScreen) {
+            onNavigateTo(sim.configScreen)
         } else {
-            sendConfigMessage('config:reset-and-select-source', { source: sim.id })
+            sendMessage('action:switch-app', { app: sim.id })
+            onClose()
         }
-        onClose()
     }
 
     return (

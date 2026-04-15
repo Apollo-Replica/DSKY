@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, type RefObject } from "react"
+import { useEffect, useRef, useState, type RefObject } from "react"
 import type { MenuState, MenuScreen } from "./useMenuNavigation"
-import type { ConfigState } from "../../types/config"
+import type { ServerState } from "../../types/serverState"
 import type { DskyState, DskyClient } from "../../types/dsky"
 import { SCREEN_AREA } from "./constants"
 import MainScreen from "./screens/mainScreen"
@@ -15,6 +15,15 @@ import AppsScreen from "./screens/appsScreen"
 import CalculatorScreen from "./screens/calculatorScreen"
 import ClockScreen from "./screens/clockScreen"
 import GamesScreen from "./screens/gamesScreen"
+import YaagcVersionScreen from "./screens/yaagcVersionScreen"
+import BridgeSelectScreen from "./screens/bridgeSelectScreen"
+import SerialSelectScreen from "./screens/serialSelectScreen"
+import NetworkInterfaceScreen from "./screens/networkInterfaceScreen"
+import HaUrlScreen from "./screens/haUrlScreen"
+import HaTokenScreen from "./screens/haTokenScreen"
+import HaDiscoverScreen from "./screens/haDiscoverScreen"
+import HaEntitiesScreen from "./screens/haEntitiesScreen"
+import WifiScreen from "./screens/wifiScreen"
 
 interface MenuOverlayProps {
     menuState: MenuState
@@ -24,12 +33,12 @@ interface MenuOverlayProps {
     selectedIndex: number
     onSetSelectedIndex: (index: number) => void
     onMoveSelection: (delta: number, maxItems: number) => void
-    configState: ConfigState | null
+    serverState: ServerState | null
     clients: DskyClient[]
     wsConnected: boolean
     viewMode: 'screen' | 'full'
     onCycleViewMode: () => void
-    sendConfigMessage: (type: string, data?: Record<string, unknown>) => void
+    sendMessage: (type: string, data?: Record<string, unknown>) => void
     sendKey: (key: string) => void
     dskyState: DskyState
     appKeyHandlerRef: RefObject<((key: string) => void) | null>
@@ -45,18 +54,22 @@ export default function MenuOverlay({
     selectedIndex,
     onSetSelectedIndex,
     onMoveSelection,
-    configState,
+    serverState,
     clients,
     wsConnected,
     viewMode,
     onCycleViewMode,
-    sendConfigMessage,
+    sendMessage,
     sendKey,
     dskyState,
     appKeyHandlerRef,
     mode = 'overlay',
 }: MenuOverlayProps) {
     const overlayRef = useRef<HTMLDivElement>(null)
+
+    // HA flow state — lifted here so it persists across screen navigation
+    const [haUrl, setHaUrl] = useState('http://')
+    const [haToken, setHaToken] = useState('')
 
     useEffect(() => {
         if (menuState.isOpen) {
@@ -69,6 +82,8 @@ export default function MenuOverlay({
     const isSubScreen = menuState.activeScreen !== 'main'
     const isAppScreen = menuState.activeScreen === 'calculator'
         || menuState.activeScreen === 'clock'
+    const isTextInputScreen = menuState.activeScreen === 'haUrl'
+        || menuState.activeScreen === 'haToken'
 
     const renderScreen = () => {
         switch (menuState.activeScreen) {
@@ -78,8 +93,7 @@ export default function MenuOverlay({
                         selectedIndex={selectedIndex}
                         onSelect={onNavigateTo}
                         onSetSelectedIndex={onSetSelectedIndex}
-                        configState={configState}
-                        sendConfigMessage={sendConfigMessage}
+                        sendMessage={sendMessage}
                         onClose={onClose}
                     />
                 )
@@ -88,7 +102,8 @@ export default function MenuOverlay({
                     <SimulateScreen
                         selectedIndex={selectedIndex}
                         onSetSelectedIndex={onSetSelectedIndex}
-                        sendConfigMessage={sendConfigMessage}
+                        onNavigateTo={onNavigateTo}
+                        sendMessage={sendMessage}
                         onClose={onClose}
                     />
                 )
@@ -97,14 +112,14 @@ export default function MenuOverlay({
                     <ConnectScreen
                         selectedIndex={selectedIndex}
                         onSetSelectedIndex={onSetSelectedIndex}
-                        configState={configState}
-                        sendConfigMessage={sendConfigMessage}
+                        serverState={serverState}
+                        onNavigateTo={onNavigateTo}
                         onClose={onClose}
                     />
                 )
             case 'commands':
                 return (
-                    <CommandsScreen configState={configState} />
+                    <CommandsScreen serverState={serverState} />
                 )
             case 'settings':
                 return (
@@ -112,8 +127,8 @@ export default function MenuOverlay({
                         selectedIndex={selectedIndex}
                         onSetSelectedIndex={onSetSelectedIndex}
                         onSelect={onNavigateTo}
-                        configState={configState}
-                        sendConfigMessage={sendConfigMessage}
+                        serverState={serverState}
+                        sendMessage={sendMessage}
                         viewMode={viewMode}
                         onCycleViewMode={onCycleViewMode}
                         onClose={onClose}
@@ -122,7 +137,7 @@ export default function MenuOverlay({
             case 'about':
                 return (
                     <AboutScreen
-                        configState={configState}
+                        serverState={serverState}
                         wsConnected={wsConnected}
                         clients={clients}
                     />
@@ -136,20 +151,99 @@ export default function MenuOverlay({
                     />
                 )
             case 'calculator':
-                return (
-                    <CalculatorScreen
-                        appKeyHandlerRef={appKeyHandlerRef}
-                    />
-                )
+                return <CalculatorScreen appKeyHandlerRef={appKeyHandlerRef} />
             case 'clock':
+                return <ClockScreen appKeyHandlerRef={appKeyHandlerRef} />
+            case 'games':
+                return <GamesScreen />
+            case 'yaagcVersion':
                 return (
-                    <ClockScreen
+                    <YaagcVersionScreen
+                        selectedIndex={selectedIndex}
+                        onSetSelectedIndex={onSetSelectedIndex}
+                        sendMessage={sendMessage}
+                        onClose={onClose}
+                    />
+                )
+            case 'bridgeSelect':
+                return (
+                    <BridgeSelectScreen
+                        selectedIndex={selectedIndex}
+                        onSetSelectedIndex={onSetSelectedIndex}
+                        sendMessage={sendMessage}
+                        onClose={onClose}
+                        serverState={serverState}
+                    />
+                )
+            case 'serialSelect':
+                return (
+                    <SerialSelectScreen
+                        selectedIndex={selectedIndex}
+                        onSetSelectedIndex={onSetSelectedIndex}
+                        sendMessage={sendMessage}
+                        onNavigateBack={onNavigateBack}
+                        serverState={serverState}
+                    />
+                )
+            case 'networkInterface':
+                return (
+                    <NetworkInterfaceScreen
+                        selectedIndex={selectedIndex}
+                        onSetSelectedIndex={onSetSelectedIndex}
+                        sendMessage={sendMessage}
+                        onNavigateBack={onNavigateBack}
+                        serverState={serverState}
+                    />
+                )
+            case 'haUrl':
+                return (
+                    <HaUrlScreen
+                        onNavigateTo={onNavigateTo}
+                        onNavigateBack={onNavigateBack}
+                        haUrl={haUrl}
+                        onHaUrlChange={setHaUrl}
                         appKeyHandlerRef={appKeyHandlerRef}
                     />
                 )
-            case 'games':
+            case 'haToken':
                 return (
-                    <GamesScreen />
+                    <HaTokenScreen
+                        onNavigateBack={onNavigateBack}
+                        sendMessage={sendMessage}
+                        onNavigateTo={onNavigateTo}
+                        haUrl={haUrl}
+                        haToken={haToken}
+                        onHaTokenChange={setHaToken}
+                        appKeyHandlerRef={appKeyHandlerRef}
+                    />
+                )
+            case 'haDiscover':
+                return (
+                    <HaDiscoverScreen
+                        serverState={serverState}
+                        onNavigateBack={onNavigateBack}
+                        onNavigateTo={onNavigateTo}
+                    />
+                )
+            case 'haEntities':
+                return (
+                    <HaEntitiesScreen
+                        selectedIndex={selectedIndex}
+                        onSetSelectedIndex={onSetSelectedIndex}
+                        sendMessage={sendMessage}
+                        onClose={onClose}
+                        onNavigateBack={onNavigateBack}
+                        serverState={serverState}
+                        haUrl={haUrl}
+                        haToken={haToken}
+                    />
+                )
+            case 'wifi':
+                return (
+                    <WifiScreen
+                        serverState={serverState}
+                        onNavigateBack={onNavigateBack}
+                    />
                 )
             default:
                 return null
@@ -179,7 +273,10 @@ export default function MenuOverlay({
                 display: 'flex',
                 flexDirection: 'column',
                 zIndex: mode === 'screen' ? 1000 : 5,
-                backgroundColor: 'transparent',
+                backgroundColor: 'rgba(10, 20, 10, 0.7)',
+                backdropFilter: 'blur(0.5cqw)',
+                WebkitBackdropFilter: 'blur(0.5cqw)',
+                borderRadius: '1.5cqw',
                 outline: 'none',
                 fontFamily: 'monospace',
             }}
@@ -217,7 +314,7 @@ export default function MenuOverlay({
                 </div>
 
                 {/* Nav hints — compact, pinned at bottom */}
-                {!isAppScreen && (
+                {!isAppScreen && !isTextInputScreen && (
                     <div style={{
                         flexShrink: 0,
                         display: 'flex',
@@ -247,4 +344,3 @@ function K({ children }: { children: React.ReactNode }) {
         </span>
     )
 }
-

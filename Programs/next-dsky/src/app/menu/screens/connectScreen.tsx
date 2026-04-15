@@ -2,29 +2,29 @@
 
 import MenuCard from "../menuCard"
 import MenuGrid from "../menuGrid"
-import type { ConfigState } from "../../../types/config"
+import type { ServerState } from "../../../types/serverState"
+import type { MenuScreen } from "../useMenuNavigation"
 
 interface ConnectScreenProps {
     selectedIndex: number
     onSetSelectedIndex: (index: number) => void
-    configState: ConfigState | null
-    sendConfigMessage: (type: string, data?: Record<string, unknown>) => void
+    serverState: ServerState | null
+    onNavigateTo: (screen: MenuScreen) => void
     onClose: () => void
 }
 
 export default function ConnectScreen({
     selectedIndex,
     onSetSelectedIndex,
-    configState,
-    sendConfigMessage,
+    serverState,
+    onNavigateTo,
     onClose,
 }: ConnectScreenProps) {
 
-    const isConnected = configState?.inputSource === 'homeassistant'
+    const isConnected = serverState?.app?.id === 'homeassistant'
 
     const handleSetup = () => {
-        sendConfigMessage('config:reset-and-goto', { step: 'haSetup' })
-        onClose()
+        onNavigateTo('haUrl')
     }
 
     const cards = isConnected
@@ -63,6 +63,6 @@ export default function ConnectScreen({
     )
 }
 
-export function getConnectScreenItemCount(configState: ConfigState | null): number {
-    return configState?.inputSource === 'homeassistant' ? 2 : 1
+export function getConnectScreenItemCount(serverState: ServerState | null): number {
+    return serverState?.app?.id === 'homeassistant' ? 2 : 1
 }

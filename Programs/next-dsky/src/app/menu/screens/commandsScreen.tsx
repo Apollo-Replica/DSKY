@@ -1,17 +1,17 @@
 "use client"
 
 import { assignNouns } from "../../../utils/nounAssignment"
-import type { ConfigState } from "../../../types/config"
+import type { ServerState } from "../../../types/serverState"
 import { panelStyle, sectionStyle, titleStyle, rowStyle, keyStyle, valueStyle, hintStyle } from "../panelStyles"
 
 interface CommandsScreenProps {
-    configState: ConfigState | null
+    serverState: ServerState | null
 }
 
-export default function CommandsScreen({ configState }: CommandsScreenProps) {
-    const isHA = configState?.inputSource === 'homeassistant'
-    const assignments = (isHA && configState?.haSelectedEntityIds && configState?.haEntities)
-        ? assignNouns(configState.haSelectedEntityIds, configState.haEntities)
+export default function CommandsScreen({ serverState }: CommandsScreenProps) {
+    const isHA = serverState?.app?.id === 'homeassistant'
+    const assignments = (isHA && serverState?.ha?.selectedIds && serverState?.ha?.entities)
+        ? assignNouns(serverState.ha.selectedIds, serverState.ha.entities)
         : []
 
     return (

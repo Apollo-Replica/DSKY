@@ -3,14 +3,12 @@
 import MenuCard from "../menuCard"
 import MenuGrid from "../menuGrid"
 import type { MenuScreen } from "../useMenuNavigation"
-import type { ConfigState } from "../../../types/config"
 
 interface MainScreenProps {
     selectedIndex: number
     onSelect: (screen: MenuScreen) => void
     onSetSelectedIndex: (index: number) => void
-    configState: ConfigState | null
-    sendConfigMessage: (type: string, data?: Record<string, unknown>) => void
+    sendMessage: (type: string, data?: Record<string, unknown>) => void
     onClose: () => void
 }
 
@@ -37,8 +35,7 @@ export default function MainScreen({
     selectedIndex,
     onSelect,
     onSetSelectedIndex,
-    configState,
-    sendConfigMessage,
+    sendMessage,
     onClose,
 }: MainScreenProps) {
 
@@ -46,7 +43,7 @@ export default function MainScreen({
         if (card.screen) {
             onSelect(card.screen)
         } else if (card.action === 'random') {
-            sendConfigMessage('config:reset-and-select-source', { source: 'random' })
+            sendMessage('action:switch-app', { app: 'random' })
             onClose()
         }
     }

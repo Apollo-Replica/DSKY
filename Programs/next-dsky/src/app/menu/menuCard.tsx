@@ -1,8 +1,10 @@
 "use client"
 
+import type { ReactNode } from "react"
+
 interface MenuCardProps {
     index: number
-    icon: string
+    icon: ReactNode
     label: string
     description?: string
     badge?: string
