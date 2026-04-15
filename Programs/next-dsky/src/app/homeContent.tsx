@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { AUDIO_LOAD, NO_CONN, NO_CONN_UHOH } from "../utils/dskyStates";
 import { chunkedUpdate, getChangedChunks } from "@/utils/chunks";
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Alarms from "./alarms";
 import ClientList from "./clientList";
 import MenuOverlay from "./menu/menuOverlay";
@@ -29,7 +29,6 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   const viewParam = searchParams.get('view')
   const [viewMode, setViewMode] = useState<'full' | 'screen'>(viewParam === 'screen' ? 'screen' : 'full')
 
-  const router = useRouter()
   const toggleViewMode = useCallback(() => {
     setViewMode(prev => {
       const next = prev === 'full' ? 'screen' : 'full'
@@ -37,10 +36,10 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       if (next === 'full') params.delete('view')
       else params.set('view', 'screen')
       const qs = params.toString()
-      router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false })
+      window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
       return next
     })
-  }, [router])
+  }, [])
 
   const initialState = AUDIO_LOAD
   const [dskyState,setDskyState] = useState(initialState)
