@@ -311,17 +311,27 @@ const handleHaConfigure = async (data: any) => {
         haSelectedEntityIds: entityIds,
     })
 
-    updateHa({ configured: true, url })
+    updateHa({ configured: true, url, token, entities, selectedIds: entityIds })
     closeMenu()
 }
 
 const handleHaReconfigure = async () => {
-    console.log('[Server] Reconfiguring HA — stopping integration')
+    console.log('[Server] Removing HA configuration')
     await closeSerial()
     if (programOptions.serial) {
         await createSerial(programOptions.serial, programOptions.baud)
     }
-    updateHa({ configured: false, url: undefined, entities: undefined, selectedIds: undefined, error: undefined })
+    // Delete persisted config file
+    try {
+        const fs = await import('fs')
+        const path = await import('path')
+        const filePath = path.resolve('ha_entities.json')
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+        console.log('[Server] Deleted ha_entities.json')
+    } catch (err) {
+        console.error('[Server] Failed to delete ha_entities.json:', err)
+    }
+    updateHa({ configured: false, url: undefined, token: undefined, entities: undefined, selectedIds: undefined, error: undefined })
     enterIdle()
 }
 
@@ -527,10 +537,18 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             await startIntegration({
                 app: 'homeassistant',
                 serialPort: options.serial || null,
+                haUrl: persisted.url,
+                haToken: persisted.token,
                 haEntities: persisted.entities,
                 haSelectedEntityIds: persisted.selectedEntityIds,
             })
-            updateHa({ configured: true })
+            updateHa({
+                configured: true,
+                url: persisted.url,
+                token: persisted.token,
+                entities: persisted.entities,
+                selectedIds: persisted.selectedEntityIds,
+            })
         } else {
             // No mode specified — start idle, menu opens via enterIdle
             console.log('[Server] Starting idle (no integration)')

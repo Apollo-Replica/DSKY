@@ -8,11 +8,13 @@ export default function HaConfigContent() {
     const [wsConnected, setWsConnected] = useState(false)
     const wsRef = useRef<WebSocket | null>(null)
     const mountedRef = useRef(true)
+    const initializedRef = useRef(false)
 
     // Form state
-    const [url, setUrl] = useState('http://')
+    const [url, setUrl] = useState('')
     const [token, setToken] = useState('')
     const [localSelectedIds, setLocalSelectedIds] = useState<string[]>([])
+    const [editing, setEditing] = useState(false)
 
     const sendMessage = useCallback((type: string, data?: Record<string, unknown>) => {
         const ws = wsRef.current
@@ -60,23 +62,36 @@ export default function HaConfigContent() {
         }
     }, [])
 
-    // Sync entity selection from server
+    // Pre-fill form from persisted config on first load
     useEffect(() => {
+        if (initializedRef.current || !serverState) return
+        initializedRef.current = true
+
+        const ha = serverState.ha
+        if (ha.url) setUrl(ha.url)
+        if (ha.token) setToken(ha.token)
+        if (ha.selectedIds) setLocalSelectedIds(ha.selectedIds)
+    }, [serverState])
+
+    // Sync entity selection when server discovers new entities
+    useEffect(() => {
+        if (!editing) return
         if (serverState?.ha?.selectedIds) {
             setLocalSelectedIds(serverState.ha.selectedIds)
         } else if (serverState?.ha?.entities) {
             setLocalSelectedIds(serverState.ha.entities.map(e => e.entity_id))
         }
-    }, [serverState?.ha?.selectedIds, serverState?.ha?.entities])
+    }, [serverState?.ha?.entities, editing])
 
     const ha = serverState?.ha
-    const entities = ha?.entities ?? []
     const isConfigured = ha?.configured === true
-    const isDiscovering = !ha?.error && !ha?.entities && url !== 'http://' && token.length > 0
-    const hasEntities = entities.length > 0
+    const hasEntities = (ha?.entities?.length ?? 0) > 0
+    const entities = ha?.entities ?? []
+    const haError = ha?.error
 
     const handleDiscover = () => {
         sendMessage('action:discover-ha', { url, token })
+        setEditing(true)
     }
 
     const handleConfigure = () => {
@@ -86,13 +101,13 @@ export default function HaConfigContent() {
             entityIds: localSelectedIds,
             entities,
         })
+        setEditing(false)
     }
 
     const handleReconfigure = () => {
-        sendMessage('action:ha-reconfigure')
-        setUrl('http://')
-        setToken('')
-        setLocalSelectedIds([])
+        setEditing(true)
+        // Re-discover with existing credentials to refresh entity list
+        sendMessage('action:discover-ha', { url, token })
     }
 
     const toggleEntity = (entityId: string) => {
@@ -120,8 +135,8 @@ export default function HaConfigContent() {
         )
     }
 
-    // --- Configured state ---
-    if (isConfigured) {
+    // --- Configured state (not editing) ---
+    if (isConfigured && !editing) {
         return (
             <Page>
                 <Card>
@@ -130,22 +145,26 @@ export default function HaConfigContent() {
                     {ha?.url && <Hint>{ha.url}</Hint>}
                     {ha?.selectedIds && <Hint>{ha.selectedIds.length} entities active</Hint>}
                     <Spacer />
-                    <Button onClick={handleReconfigure} variant="danger">
-                        Reconfigure
+                    <Button onClick={handleReconfigure}>
+                        Edit Configuration
+                    </Button>
+                    <Spacer />
+                    <Button onClick={() => sendMessage('action:ha-reconfigure')} variant="danger">
+                        Remove Configuration
                     </Button>
                     <Hint style={{ marginTop: 12 }}>
-                        This will stop the current Home Assistant integration and allow you to set up a new connection.
+                        This will stop the Home Assistant integration and clear saved credentials.
                     </Hint>
                 </Card>
             </Page>
         )
     }
 
-    // --- Setup wizard ---
+    // --- Setup / edit form ---
     return (
         <Page>
             <Card>
-                <Title>Home Assistant Setup</Title>
+                <Title>{isConfigured ? 'Edit Configuration' : 'Home Assistant Setup'}</Title>
 
                 {/* Step 1: URL */}
                 <Label>Home Assistant URL</Label>
@@ -165,28 +184,18 @@ export default function HaConfigContent() {
                 />
 
                 {/* Discover button */}
-                {!hasEntities && (
-                    <>
-                        <Spacer />
-                        <Button
-                            onClick={handleDiscover}
-                            disabled={!url.startsWith('http') || token.trim().length === 0}
-                        >
-                            Discover Entities
-                        </Button>
-                    </>
-                )}
+                <Spacer />
+                <Button
+                    onClick={handleDiscover}
+                    disabled={!url.startsWith('http') || token.trim().length === 0}
+                    variant={hasEntities ? 'secondary' : undefined}
+                >
+                    {hasEntities ? 'Re-discover Entities' : 'Discover Entities'}
+                </Button>
 
                 {/* Error */}
-                {ha?.error && (
-                    <ErrorText>{ha.error}</ErrorText>
-                )}
-
-                {/* Discovering... */}
-                {isDiscovering && !ha?.error && (
-                    <Hint style={{ textAlign: 'center', marginTop: 16, color: '#4ade80' }}>
-                        Discovering entities...
-                    </Hint>
+                {haError && (
+                    <ErrorText>{haError}</ErrorText>
                 )}
 
                 {/* Entity list */}
@@ -215,7 +224,17 @@ export default function HaConfigContent() {
                             onClick={handleConfigure}
                             disabled={localSelectedIds.length === 0}
                         >
-                            Confirm &amp; Start
+                            Save &amp; Start
+                        </Button>
+                    </>
+                )}
+
+                {/* Cancel button when editing existing config */}
+                {isConfigured && (
+                    <>
+                        <Spacer />
+                        <Button onClick={() => setEditing(false)} variant="secondary">
+                            Cancel
                         </Button>
                     </>
                 )}
@@ -224,7 +243,7 @@ export default function HaConfigContent() {
     )
 }
 
-// --- Styled helpers (inline styles, no CSS modules needed) ---
+// --- Styled helpers ---
 
 function Page({ children }: { children: React.ReactNode }) {
     return (
@@ -309,18 +328,23 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     )
 }
 
-function Button({ children, variant, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'danger' }) {
-    const isDanger = variant === 'danger'
+function Button({ children, variant, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'danger' | 'secondary' }) {
+    const colors = variant === 'danger'
+        ? { bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444', text: '#ef4444' }
+        : variant === 'secondary'
+            ? { bg: 'rgba(255, 255, 255, 0.05)', border: '#444', text: '#999' }
+            : { bg: 'rgba(74, 222, 128, 0.15)', border: '#4ade80', text: '#4ade80' }
+
     return (
         <button
             {...props}
             style={{
                 width: '100%',
                 padding: '12px 16px',
-                background: isDanger ? 'rgba(239, 68, 68, 0.15)' : 'rgba(74, 222, 128, 0.15)',
-                border: `1px solid ${isDanger ? '#ef4444' : '#4ade80'}`,
+                background: colors.bg,
+                border: `1px solid ${colors.border}`,
                 borderRadius: 6,
-                color: isDanger ? '#ef4444' : '#4ade80',
+                color: colors.text,
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: props.disabled ? 'not-allowed' : 'pointer',

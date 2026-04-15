@@ -137,6 +137,7 @@ export interface ServerState {
     ha: {
         configured: boolean
         url?: string
+        token?: string
         entities?: DiscoveredEntity[]
         selectedIds?: string[]
         error?: string

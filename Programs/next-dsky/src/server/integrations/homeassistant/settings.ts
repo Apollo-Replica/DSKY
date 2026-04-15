@@ -61,6 +61,8 @@ export const hasPersistedConfig = (): boolean => {
  * Reconstructs entity info from the noun mappings stored in ha_entities.json.
  */
 export const loadPersistedConfig = (): {
+    url?: string
+    token?: string
     entities: Array<{ entity_id: string, friendly_name: string, domain: string }>
     selectedEntityIds: string[]
 } => {
@@ -86,7 +88,7 @@ export const loadPersistedConfig = (): {
             })
         }
 
-        return { entities, selectedEntityIds }
+        return { url: parsed.url, token: parsed.token, entities, selectedEntityIds }
     } catch {
         return { entities: [], selectedEntityIds: [] }
     }
