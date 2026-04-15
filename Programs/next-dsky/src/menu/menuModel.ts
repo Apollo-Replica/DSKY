@@ -37,11 +37,21 @@ const YAAGC_VERSIONS = [
 function mainScreenItems(): MenuItemDef[] {
     return [
         { id: 'simulate', icon: '\u25C7', label: 'SIMULATE', action: { type: 'navigate', screen: 'simulate' } },
-        { id: 'ha',       icon: '\u25CE', label: 'HOME ASST', action: { type: 'navigate', screen: 'haSetup' } },
+        { id: 'ha',       icon: '\u25CE', label: 'HOME ASST', action: { type: 'navigate', screen: 'haMenu' } },
         { id: 'apps',     icon: '\u25A6', label: 'APPS', action: { type: 'navigate', screen: 'apps' } },
         { id: 'commands', icon: '\u2630', label: 'COMMANDS', action: { type: 'navigate', screen: 'commands' } },
         { id: 'random',   icon: '\u2684', label: 'RANDOM', action: { type: 'action', action: 'action:switch-app', data: { app: 'random' }, then: 'close' } },
         { id: 'settings', icon: '\u2699', label: 'SETTINGS', action: { type: 'navigate', screen: 'settings' } },
+    ]
+}
+
+function haMenuScreenItems(serverState: ServerState): MenuItemDef[] {
+    const haActive = serverState.app.id === 'homeassistant'
+    return [
+        haActive
+            ? { id: 'ha-quit', icon: '\u2298', label: 'QUIT', action: { type: 'action', action: 'action:enter-idle', then: 'close' } }
+            : { id: 'ha-enable', icon: '\u25CE', label: 'ENABLE', action: { type: 'action', action: 'action:switch-app', data: { app: 'homeassistant' }, then: 'close' } },
+        { id: 'ha-config', icon: '\u2699', label: 'CONFIGURE', action: { type: 'navigate', screen: 'haSetup' } },
     ]
 }
 
@@ -189,6 +199,7 @@ function networkInterfaceScreenItems(serverState: ServerState): MenuItemDef[] {
 export function getScreenItems(screen: MenuScreen, serverState: ServerState, _menuState: MenuState): MenuItemDef[] {
     switch (screen) {
         case 'main':             return mainScreenItems()
+        case 'haMenu':           return haMenuScreenItems(serverState)
         case 'simulate':         return simulateScreenItems()
         case 'apps':             return appsScreenItems()
         case 'settings':         return settingsScreenItems(serverState)

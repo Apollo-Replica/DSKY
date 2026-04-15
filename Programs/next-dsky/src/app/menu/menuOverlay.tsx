@@ -23,7 +23,7 @@ interface MenuOverlayProps {
 
 // Card-grid screens rendered generically from menuModel
 const CARD_GRID_SCREENS: Set<MenuScreen> = new Set([
-    'main', 'simulate', 'apps', 'settings',
+    'main', 'simulate', 'apps', 'settings', 'haMenu',
     'yaAgcSelect', 'bridgeSelect', 'serialSelect', 'networkInterface',
 ])
 

@@ -359,6 +359,13 @@ const dispatchAction = async (type: string, data?: any) => {
         case 'action:list-interfaces':        handleListInterfaces(); break
         case 'action:set-network-interface':   handleSetNetworkInterface(data); break
         case 'action:shutdown':               handleShutdown(); break
+        case 'action:enter-idle':
+            await closeSerial()
+            if (programOptions.serial) {
+                await createSerial(programOptions.serial, programOptions.baud)
+            }
+            enterIdle()
+            break
         default:
             console.log(`[Server] Unknown action: ${type}`)
     }
@@ -487,13 +494,6 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             case 'action:ha-reconfigure':
                 await handleHaReconfigure()
                 return
-            case 'action:enter-idle':
-                await closeSerial()
-                if (programOptions.serial) {
-                    await createSerial(programOptions.serial, programOptions.baud)
-                }
-                enterIdle()
-                return
         }
 
         // Server actions (dispatched by both clients and menuController)
@@ -515,7 +515,7 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     } else {
         // Check for persisted Home Assistant config (auto-start on reboot)
         const { hasPersistedConfig, loadPersistedConfig } = await import('./integrations/homeassistant/settings')
-        if (process.env.DSKY_HOMEASSISTANT === '1' && hasPersistedConfig()) {
+        if (hasPersistedConfig()) {
             console.log('[Server] Found persisted HA config, auto-starting Home Assistant')
             const persisted = loadPersistedConfig()
             await startIntegration({

@@ -31,7 +31,7 @@ function getRegistry(): Record<string, new () => AgcIntegration> {
         bridge: BridgeIntegration,
         yaagc: YaAGCIntegration,
         random: RandomIntegration,
-        ...(process.env.DSKY_HOMEASSISTANT === '1' ? { homeassistant: HomeAssistantIntegration } : {}),
+        homeassistant: HomeAssistantIntegration,
     }
 }
 

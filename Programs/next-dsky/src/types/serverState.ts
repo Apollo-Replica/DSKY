@@ -18,6 +18,7 @@ export type MenuScreen =
     | 'bridgeSelect'
     | 'serialSelect'
     | 'networkInterface'
+    | 'haMenu'
     | 'haSetup'
     | 'wifi'
 
