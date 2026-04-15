@@ -13,6 +13,15 @@ export type MenuScreen =
     | 'calculator'
     | 'clock'
     | 'games'
+    | 'yaagcVersion'
+    | 'bridgeSelect'
+    | 'serialSelect'
+    | 'networkInterface'
+    | 'haUrl'
+    | 'haToken'
+    | 'haDiscover'
+    | 'haEntities'
+    | 'wifi'
 
 export interface MenuState {
     isOpen: boolean
