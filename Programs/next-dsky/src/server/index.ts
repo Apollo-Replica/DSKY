@@ -7,6 +7,9 @@ import { initWebSocket, setWebSocketListener, updateWebSocketState, setMessageLi
 import { mdnsService } from './mdnsService'
 import { detectNetworkInterfaces, pickBestInterface } from './networkInterfaces'
 import { V35_TEST } from '../utils/dskyStates'
+import { initMenuController, getMenuState, openMenu, closeMenu, navigateBack, setSelectedIndex, moveSelection, selectItem, processKey, checkWifiAutoNav, checkHaAutoNav } from './menuController'
+import { initCalculator, handleCalculatorKey } from './apps/calculatorApp'
+import { initClock, handleClockKey, getClockState, cleanup as cleanupClock } from './apps/clockApp'
 import type { ServerState } from '../types/serverState'
 
 let activeIntegration: AgcIntegration | null = null
@@ -17,16 +20,21 @@ let wifiConnectRunning = false
 // --- Server State ---
 
 let serverState: ServerState = {
+    menu: { isOpen: false, activeScreen: 'main', selectedIndex: 0, screenHistory: [] },
     app: { id: null },
     serial: { port: null, available: [] },
     network: { interface: null, available: [] },
     bridge: { discovered: [], scanning: false },
-    ha: {},
+    ha: { configured: false },
     wifi: { available: false, running: false },
     shutdown: false,
 }
 
-const broadcast = () => broadcastServerState(serverState)
+const broadcast = () => {
+    // Sync menu state into serverState before broadcasting
+    serverState.menu = getMenuState()
+    broadcastServerState(serverState)
+}
 
 const updateApp = (partial: Partial<ServerState['app']>) => {
     serverState = { ...serverState, app: { ...serverState.app, ...partial } }
@@ -49,13 +57,21 @@ const updateBridge = (partial: Partial<ServerState['bridge']>) => {
 }
 
 const updateHa = (partial: Partial<ServerState['ha']>) => {
+    const wasBefore = serverState.ha.configured
     serverState = { ...serverState, ha: { ...serverState.ha, ...partial } }
     broadcast()
+    // Check auto-navigation after HA state change
+    if (!wasBefore && serverState.ha.configured) {
+        checkHaAutoNav(serverState.ha.configured)
+    }
 }
 
 const updateWifi = (partial: Partial<ServerState['wifi']>) => {
+    const wasRunning = serverState.wifi.running
     serverState = { ...serverState, wifi: { ...serverState.wifi, ...partial } }
     broadcast()
+    // Check auto-navigation after wifi state change
+    checkWifiAutoNav(wasRunning, serverState.wifi.running)
 }
 
 // --- WiFi Connect ---
@@ -87,14 +103,18 @@ const stopIntegration = () => {
         activeIntegration.stop()
     }
     activeIntegration = null
+    // Clean up custom app state
+    cleanupClock()
 }
 
 const enterIdle = () => {
     stopIntegration()
     mdnsService.setApp('idle')
-    updateApp({ id: null, yaagcVersion: undefined, bridgeUrl: undefined, haUrl: undefined })
+    updateApp({ id: null, yaagcVersion: undefined, bridgeUrl: undefined, haUrl: undefined, calculator: undefined, clock: undefined })
     // Emit test pattern so DSKY screen shows something
     pendingUpdate = V35_TEST
+    // Open the menu
+    openMenu()
 }
 
 interface IntegrationConfig {
@@ -148,12 +168,33 @@ const startIntegration = async (config: IntegrationConfig) => {
     }
 }
 
+// Custom apps (calculator, clock) — not AgcIntegrations
+
+const startCustomApp = (appId: string) => {
+    console.log(`[Server] Starting custom app: ${appId}`)
+    stopIntegration()
+
+    if (appId === 'calculator') {
+        const calcState = initCalculator()
+        updateApp({ id: 'calculator', calculator: calcState, clock: undefined })
+    } else if (appId === 'clock') {
+        const clockState = initClock(broadcast)
+        updateApp({ id: 'clock', clock: clockState, calculator: undefined })
+    }
+}
+
 // --- Action Handlers ---
 
 const handleSwitchApp = async (data: any) => {
     const { app, serialPort, bridgeUrl, yaagcVersion, haUrl, haToken, haEntities, haSelectedEntityIds } = data
     if (!app) {
         console.log('[Server] action:switch-app missing app')
+        return
+    }
+
+    // Custom apps don't need serial or integrations
+    if (app === 'calculator' || app === 'clock') {
+        startCustomApp(app)
         return
     }
 
@@ -239,6 +280,50 @@ const handleDiscoverHa = async (data: any) => {
     }
 }
 
+const handleHaConfigure = async (data: any) => {
+    const { url, token, entityIds, entities } = data
+    if (!url || !token) {
+        console.log('[Server] action:ha-configure missing url or token')
+        return
+    }
+
+    // Persist noun mappings
+    if (entities && entityIds) {
+        try {
+            const { generateNounMappings, persistNounMappings } = await import('./integrations/homeassistant/entityDiscovery')
+            const nouns = generateNounMappings(entityIds, entities)
+            persistNounMappings(nouns, url, token)
+        } catch (err) {
+            console.error('[Server] Failed to persist HA noun mappings:', err)
+        }
+    }
+
+    await closeSerial()
+    const port = programOptions.serial || null
+
+    await startIntegration({
+        app: 'homeassistant',
+        serialPort: port,
+        haUrl: url,
+        haToken: token,
+        haEntities: entities,
+        haSelectedEntityIds: entityIds,
+    })
+
+    updateHa({ configured: true, url })
+    closeMenu()
+}
+
+const handleHaReconfigure = async () => {
+    console.log('[Server] Reconfiguring HA — stopping integration')
+    await closeSerial()
+    if (programOptions.serial) {
+        await createSerial(programOptions.serial, programOptions.baud)
+    }
+    updateHa({ configured: false, url: undefined, entities: undefined, selectedIds: undefined, error: undefined })
+    enterIdle()
+}
+
 const handleListInterfaces = () => {
     const available = detectNetworkInterfaces()
     updateNetwork({ available })
@@ -259,6 +344,26 @@ const handleShutdown = () => {
     exec(programOptions.shutdown)
 }
 
+// Dispatch action by type — used by both message listener and menuController
+const dispatchAction = async (type: string, data?: any) => {
+    switch (type) {
+        case 'action:switch-app':      await handleSwitchApp(data); break
+        case 'action:set-serial':      await handleSetSerial(data); break
+        case 'action:list-ports':      await handleListPorts(); break
+        case 'action:scan-bridges':    handleScanBridges(); break
+        case 'action:discover-ha':     await handleDiscoverHa(data); break
+        case 'action:wifi-connect':
+            if (programOptions.wifiConnect) launchWifiConnect()
+            else console.log('[Server] WiFi connect not enabled (no --wifi-connect arg)')
+            break
+        case 'action:list-interfaces':        handleListInterfaces(); break
+        case 'action:set-network-interface':   handleSetNetworkInterface(data); break
+        case 'action:shutdown':               handleShutdown(); break
+        default:
+            console.log(`[Server] Unknown action: ${type}`)
+    }
+}
+
 // --- Server Init ---
 
 export const initServer = async (wss: WebSocketServer, options: any) => {
@@ -268,6 +373,16 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     serverState.wifi.available = !!options.wifiConnect
     serverState.shutdown = !!options.shutdown
     serverState.serial.port = options.serial || null
+
+    // Initialize menu controller
+    initMenuController({
+        handleAction: (action, data) => dispatchAction(action, data),
+        getServerState: () => serverState,
+        broadcast,
+        flushKeyToIntegration: async (key) => {
+            await routeKeyToApp(key)
+        },
+    })
 
     // Initialize WebSocket server
     initWebSocket(wss)
@@ -316,6 +431,7 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     // Set up graceful shutdown
     const shutdown = () => {
         console.log('[Server] Shutting down...')
+        cleanupClock()
         mdnsService.stop()
         process.exit(0)
     }
@@ -345,58 +461,57 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             return
         }
 
+        // Menu actions
         switch (type) {
-            case 'action:switch-app':
-                await handleSwitchApp(data)
-                break
-            case 'action:set-serial':
-                await handleSetSerial(data)
-                break
-            case 'action:list-ports':
-                await handleListPorts()
-                break
-            case 'action:scan-bridges':
-                handleScanBridges()
-                break
-            case 'action:discover-ha':
-                await handleDiscoverHa(data)
-                break
-            case 'action:wifi-connect':
-                if (programOptions.wifiConnect) {
-                    launchWifiConnect()
-                } else {
-                    console.log('[Server] WiFi connect not enabled (no --wifi-connect arg)')
-                }
-                break
-            case 'action:list-interfaces':
-                handleListInterfaces()
-                break
-            case 'action:set-network-interface':
-                handleSetNetworkInterface(data)
-                break
-            case 'action:shutdown':
-                handleShutdown()
-                break
+            case 'action:menu-open':
+                openMenu(data?.screen)
+                return
+            case 'action:menu-close':
+                closeMenu()
+                return
+            case 'action:menu-back':
+                navigateBack()
+                return
+            case 'action:menu-select':
+                selectItem(data?.index ?? 0)
+                return
+            case 'action:menu-set-index':
+                setSelectedIndex(data?.index ?? 0)
+                return
+            case 'action:menu-move':
+                moveSelection(data?.delta ?? 0)
+                return
+            case 'action:ha-configure':
+                await handleHaConfigure(data)
+                return
+            case 'action:ha-reconfigure':
+                await handleHaReconfigure()
+                return
             case 'action:enter-idle':
                 await closeSerial()
                 if (programOptions.serial) {
                     await createSerial(programOptions.serial, programOptions.baud)
                 }
                 enterIdle()
-                break
-            default:
-                console.log(`[Server] Unknown message type: ${type}`)
+                return
         }
+
+        // Server actions (dispatched by both clients and menuController)
+        await dispatchAction(type, data)
     })
 
     // Start the appropriate integration
     if (options.mode) {
         console.log(`[Server] App specified via CLI: ${options.mode}`)
-        await startIntegration({
-            app: options.mode,
-            serialPort: options.serial || null,
-            yaagcVersion: options.yaagc,
-        })
+        if (options.mode === 'calculator' || options.mode === 'clock') {
+            startCustomApp(options.mode)
+        } else {
+            await startIntegration({
+                app: options.mode,
+                serialPort: options.serial || null,
+                yaagcVersion: options.yaagc,
+            })
+        }
     } else {
         // Check for persisted Home Assistant config (auto-start on reboot)
         const { hasPersistedConfig, loadPersistedConfig } = await import('./integrations/homeassistant/settings')
@@ -409,12 +524,12 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                 haEntities: persisted.entities,
                 haSelectedEntityIds: persisted.selectedEntityIds,
             })
+            updateHa({ configured: true })
         } else {
-            // No mode specified — start idle, client will auto-open menu
+            // No mode specified — start idle, menu opens via enterIdle
             console.log('[Server] Starting idle (no integration)')
             enterIdle()
-            // Broadcast initial state
-            broadcastServerState(serverState)
+            broadcast()
         }
     }
 
@@ -422,7 +537,34 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     setupKeyboardHandlers()
 }
 
-// --- Keyboard Handling ---
+// --- Key Routing ---
+
+/**
+ * Route a key to the active app (integration or custom app).
+ * Used when the menu is closed and the key is not consumed by menu controller.
+ */
+async function routeKeyToApp(key: string) {
+    const appId = serverState.app.id
+
+    // Custom apps
+    if (appId === 'calculator') {
+        const calcState = handleCalculatorKey(key)
+        serverState = { ...serverState, app: { ...serverState.app, calculator: calcState } }
+        broadcast()
+        return
+    }
+    if (appId === 'clock') {
+        handleClockKey(key)
+        serverState = { ...serverState, app: { ...serverState.app, clock: getClockState() } }
+        broadcast()
+        return
+    }
+
+    // Standard integrations
+    if (activeIntegration) {
+        await activeIntegration.handleKey(key)
+    }
+}
 
 function createKeyHandler(label: string) {
     let plusCount = 0
@@ -440,8 +582,15 @@ function createKeyHandler(label: string) {
 
         if (resetTimeout) clearTimeout(resetTimeout)
 
-        // Three '+' presses & holding PRO for 3 seconds enters idle (opens menu)
-        if (key === 'p' && plusCount >= 3 && activeIntegration !== null) {
+        // Route through menu controller (handles open menu + triple-N detection)
+        const consumed = await processKey(key)
+        if (consumed) {
+            plusCount = 0
+            return
+        }
+
+        // Menu didn't consume — handle PRO+++ idle detection
+        if (key === 'p' && plusCount >= 3 && (activeIntegration !== null || serverState.app.id !== null)) {
             resetTimeout = setTimeout(async () => {
                 console.log(`[Server] PRO+++ detected via ${label}`)
                 await closeSerial()
@@ -456,10 +605,8 @@ function createKeyHandler(label: string) {
         if (key === '+') plusCount++
         else plusCount = 0
 
-        // Route to active integration
-        if (activeIntegration) {
-            await activeIntegration.handleKey(key)
-        }
+        // Route to active app/integration
+        await routeKeyToApp(key)
     }
 }
 
