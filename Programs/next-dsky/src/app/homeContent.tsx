@@ -29,16 +29,16 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   const viewParam = searchParams.get('view')
   const [viewMode, setViewMode] = useState<'full' | 'screen'>(viewParam === 'screen' ? 'screen' : 'full')
 
+  const viewModeRef = useRef(viewMode)
+  viewModeRef.current = viewMode
   const toggleViewMode = useCallback(() => {
-    setViewMode(prev => {
-      const next = prev === 'full' ? 'screen' : 'full'
-      const params = new URLSearchParams(window.location.search)
-      if (next === 'full') params.delete('view')
-      else params.set('view', 'screen')
-      const qs = params.toString()
-      window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-      return next
-    })
+    const next = viewModeRef.current === 'full' ? 'screen' : 'full'
+    setViewMode(next)
+    const params = new URLSearchParams(window.location.search)
+    if (next === 'full') params.delete('view')
+    else params.set('view', 'screen')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }, [])
 
   const initialState = AUDIO_LOAD
