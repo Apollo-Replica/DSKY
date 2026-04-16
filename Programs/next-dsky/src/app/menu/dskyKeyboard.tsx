@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 
 interface DskyKeyboardProps {
     sendKey: (key: string) => void
@@ -50,15 +50,30 @@ const KEYS: KeyDef[] = [
     { id: 'krel', key: 'k', left: COL.clr, top: ROW.bot, width: W, height: H },
 ]
 
-function TransparentButton({ keyDef, onClick }: { keyDef: KeyDef, onClick: (k: KeyDef) => void }) {
+function TransparentButton({ keyDef, onPress, onRelease }: { keyDef: KeyDef, onPress: (k: KeyDef) => void, onRelease?: (k: KeyDef) => void }) {
     const [pressed, setPressed] = useState(false)
+    const pressedRef = useRef(false)
+
+    const handleDown = () => {
+        setPressed(true)
+        pressedRef.current = true
+        onPress(keyDef)
+    }
+
+    const handleUp = () => {
+        if (pressedRef.current) {
+            pressedRef.current = false
+            setPressed(false)
+            onRelease?.(keyDef)
+        }
+    }
 
     return (
         <button
-            onPointerDown={() => setPressed(true)}
-            onPointerUp={() => { setPressed(false); onClick(keyDef) }}
-            onPointerLeave={() => setPressed(false)}
-            onPointerCancel={() => setPressed(false)}
+            onPointerDown={handleDown}
+            onPointerUp={handleUp}
+            onPointerLeave={handleUp}
+            onPointerCancel={handleUp}
             style={{
                 position: 'absolute',
                 left: `${keyDef.left}%`,
@@ -81,29 +96,19 @@ function TransparentButton({ keyDef, onClick }: { keyDef: KeyDef, onClick: (k: K
     )
 }
 
-const PRO_RELEASE_DELAY_MS = 200
-
 export default function DskyKeyboard({ sendKey }: DskyKeyboardProps) {
-    const proTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-    useEffect(() => {
-        return () => {
-            if (proTimeoutRef.current) clearTimeout(proTimeoutRef.current)
-        }
-    }, [])
-
-    const handleClick = (keyDef: KeyDef) => {
+    const handlePress = (keyDef: KeyDef) => {
         sendKey(keyDef.key)
-        if (keyDef.pro) {
-            if (proTimeoutRef.current) clearTimeout(proTimeoutRef.current)
-            proTimeoutRef.current = setTimeout(() => sendKey('o'), PRO_RELEASE_DELAY_MS)
-        }
+    }
+
+    const handleRelease = (keyDef: KeyDef) => {
+        sendKey('o')
     }
 
     return (
         <>
             {KEYS.map((k) => (
-                <TransparentButton key={k.id} keyDef={k} onClick={handleClick} />
+                <TransparentButton key={k.id} keyDef={k} onPress={handlePress} onRelease={k.pro ? handleRelease : undefined} />
             ))}
         </>
     )
