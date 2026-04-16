@@ -192,16 +192,8 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     } else {
         const { hasPersistedConfig, loadPersistedConfig } = await import('./integrations/homeassistant/settings')
         if (hasPersistedConfig()) {
-            console.log('[Server] Found persisted HA config, auto-starting Home Assistant')
+            console.log('[Server] Found persisted HA config, remembering for later')
             const persisted = loadPersistedConfig()
-            await startIntegration({
-                app: 'homeassistant',
-                serialPort: options.serial || null,
-                haUrl: persisted.url,
-                haToken: persisted.token,
-                haEntities: persisted.entities,
-                haSelectedEntityIds: persisted.selectedEntityIds,
-            })
             updateHa({
                 configured: true,
                 url: persisted.url,
@@ -209,11 +201,10 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
                 entities: persisted.entities,
                 selectedIds: persisted.selectedEntityIds,
             })
-        } else {
-            console.log('[Server] Starting idle (no integration)')
-            enterIdle()
-            broadcast()
         }
+        console.log('[Server] Starting idle')
+        enterIdle()
+        broadcast()
     }
 
     setupKeyboardHandlers()
