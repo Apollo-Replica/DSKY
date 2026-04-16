@@ -21,7 +21,7 @@ else
     xrandr --output HDMI-1 --transform 0,-1,544,1,0,0,0,0,1
 
     # Now set the splash (after rotation so it uses the correct resolution)
-    SPLASH=~/DSKY/Programs/orangepi-utilities/splash.jpeg
+    SPLASH=~/DSKY/Programs/orangepi-utilities/splash.png
     if [ -f "$SPLASH" ]; then
         feh --bg-fill --no-fehbg "$SPLASH"
     fi
