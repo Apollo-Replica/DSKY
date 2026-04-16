@@ -39,10 +39,19 @@ body {
 .ELDisplay{
   position: absolute;
   inset: 0;
-  margin: -.6vh auto;
+  margin: auto;
   width: calc(52.8vh * var(--scale));
-  height:calc(100vh *  var(--scale));
-  transform: scale(1.04, 1.06);
+  height: calc(100vh * var(--scale));
+}
+
+.dsky-display-wrapper .ELDisplay{
+  margin: -0.7vh 1vh;
+  transform: scale(1.08, 1.09);
+}
+
+.screen-mode-display .ELDisplay{
+  margin: -2.1vh -0.3vh;
+  transform: scale(1.06, 1.07);
 }
 
 .Alarms{

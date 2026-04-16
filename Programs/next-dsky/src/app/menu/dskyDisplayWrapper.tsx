@@ -27,6 +27,7 @@ export default function DskyDisplayWrapper({ displayType, mode, containerRatio =
                 width: `${SCREEN_AREA.width}%`,
                 height: `${SCREEN_AREA.height}%`,
                 overflow: 'hidden',
+                borderRadius: '3%',
                 zIndex: 3,
                 containerType: 'size',
                 '--scale': 0.96 * containerRatio * SCREEN_AREA.height / 100,
