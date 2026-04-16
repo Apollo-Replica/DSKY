@@ -1,13 +1,11 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback } from 'react'
-import type { ServerState, DiscoveredEntity } from '../../types/serverState'
+import { useEffect, useState, useRef } from 'react'
+import { useServerState } from '../hooks/useServerState'
+import { Page, Card, Title, Label, Input, Button, StatusBadge, Hint, ErrorText, Spacer, EntityList, CheckboxRow, Checkbox, Domain } from './haStyledComponents'
 
 export default function HaConfigContent() {
-    const [serverState, setServerState] = useState<ServerState | null>(null)
-    const [wsConnected, setWsConnected] = useState(false)
-    const wsRef = useRef<WebSocket | null>(null)
-    const mountedRef = useRef(true)
+    const { serverState, wsConnected, sendMessage } = useServerState()
     const initializedRef = useRef(false)
 
     // Form state
@@ -15,52 +13,6 @@ export default function HaConfigContent() {
     const [token, setToken] = useState('')
     const [localSelectedIds, setLocalSelectedIds] = useState<string[]>([])
     const [editing, setEditing] = useState(false)
-
-    const sendMessage = useCallback((type: string, data?: Record<string, unknown>) => {
-        const ws = wsRef.current
-        if (ws?.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type, ...data }))
-        }
-    }, [])
-
-    // WebSocket connection
-    useEffect(() => {
-        mountedRef.current = true
-        let reconnectTimeout: NodeJS.Timeout | null = null
-
-        const connect = () => {
-            if (!mountedRef.current) return
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-            const wsURL = `${protocol}//${window.location.host}/ws`
-            const ws = new WebSocket(wsURL)
-            wsRef.current = ws
-
-            ws.onopen = () => {
-                if (mountedRef.current) setWsConnected(true)
-            }
-            ws.onclose = () => {
-                if (mountedRef.current) {
-                    setWsConnected(false)
-                    reconnectTimeout = setTimeout(connect, 1000)
-                }
-            }
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data)
-                if (data.serverState && mountedRef.current) {
-                    setServerState(data.serverState)
-                }
-            }
-        }
-
-        connect()
-
-        return () => {
-            mountedRef.current = false
-            if (reconnectTimeout) clearTimeout(reconnectTimeout)
-            wsRef.current?.close()
-            wsRef.current = null
-        }
-    }, [])
 
     // Pre-fill form from persisted config on first load
     useEffect(() => {
@@ -106,7 +58,6 @@ export default function HaConfigContent() {
 
     const handleReconfigure = () => {
         setEditing(true)
-        // Re-discover with existing credentials to refresh entity list
         sendMessage('action:discover-ha', { url, token })
     }
 
@@ -166,7 +117,6 @@ export default function HaConfigContent() {
             <Card>
                 <Title>{isConfigured ? 'Edit Configuration' : 'Home Assistant Setup'}</Title>
 
-                {/* Step 1: URL */}
                 <Label>Home Assistant URL</Label>
                 <Input
                     value={url}
@@ -174,7 +124,6 @@ export default function HaConfigContent() {
                     placeholder="http://homeassistant.local:8123"
                 />
 
-                {/* Step 2: Token */}
                 <Label>Long-Lived Access Token</Label>
                 <Input
                     value={token}
@@ -183,7 +132,6 @@ export default function HaConfigContent() {
                     type="password"
                 />
 
-                {/* Discover button */}
                 <Spacer />
                 <Button
                     onClick={handleDiscover}
@@ -193,12 +141,10 @@ export default function HaConfigContent() {
                     {hasEntities ? 'Re-discover Entities' : 'Discover Entities'}
                 </Button>
 
-                {/* Error */}
                 {haError && (
                     <ErrorText>{haError}</ErrorText>
                 )}
 
-                {/* Entity list */}
                 {hasEntities && (
                     <>
                         <Spacer />
@@ -229,7 +175,6 @@ export default function HaConfigContent() {
                     </>
                 )}
 
-                {/* Cancel button when editing existing config */}
                 {isConfigured && (
                     <>
                         <Spacer />
@@ -240,225 +185,5 @@ export default function HaConfigContent() {
                 )}
             </Card>
         </Page>
-    )
-}
-
-// --- Styled helpers ---
-
-function Page({ children }: { children: React.ReactNode }) {
-    return (
-        <main style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            backgroundColor: '#0a0a0a',
-            padding: '40px 16px',
-            fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
-            color: '#e5e5e5',
-        }}>
-            {children}
-        </main>
-    )
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-    return (
-        <div style={{
-            width: '100%',
-            maxWidth: 480,
-            background: '#141414',
-            border: '1px solid #262626',
-            borderRadius: 12,
-            padding: '32px 24px',
-        }}>
-            {children}
-        </div>
-    )
-}
-
-function Title({ children }: { children: React.ReactNode }) {
-    return (
-        <h1 style={{
-            fontSize: 24,
-            fontWeight: 700,
-            color: '#4ade80',
-            margin: '0 0 24px 0',
-            textAlign: 'center',
-            fontFamily: 'monospace',
-            letterSpacing: 1,
-        }}>
-            {children}
-        </h1>
-    )
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-    return (
-        <label style={{
-            display: 'block',
-            fontSize: 13,
-            color: '#a3a3a3',
-            marginBottom: 6,
-            marginTop: 16,
-        }}>
-            {children}
-        </label>
-    )
-}
-
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-    return (
-        <input
-            {...props}
-            style={{
-                width: '100%',
-                padding: '10px 12px',
-                background: '#0a0a0a',
-                border: '1px solid #333',
-                borderRadius: 6,
-                color: '#e5e5e5',
-                fontSize: 14,
-                fontFamily: 'monospace',
-                outline: 'none',
-                boxSizing: 'border-box',
-                ...props.style,
-            }}
-        />
-    )
-}
-
-function Button({ children, variant, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'danger' | 'secondary' }) {
-    const colors = variant === 'danger'
-        ? { bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444', text: '#ef4444' }
-        : variant === 'secondary'
-            ? { bg: 'rgba(255, 255, 255, 0.05)', border: '#444', text: '#999' }
-            : { bg: 'rgba(74, 222, 128, 0.15)', border: '#4ade80', text: '#4ade80' }
-
-    return (
-        <button
-            {...props}
-            style={{
-                width: '100%',
-                padding: '12px 16px',
-                background: colors.bg,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 6,
-                color: colors.text,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: props.disabled ? 'not-allowed' : 'pointer',
-                opacity: props.disabled ? 0.4 : 1,
-                fontFamily: 'monospace',
-                ...props.style,
-            }}
-        >
-            {children}
-        </button>
-    )
-}
-
-function StatusBadge({ children, active }: { children: React.ReactNode; active?: boolean }) {
-    return (
-        <div style={{
-            textAlign: 'center',
-            padding: '6px 12px',
-            background: active ? 'rgba(74, 222, 128, 0.1)' : 'rgba(255,255,255,0.05)',
-            border: `1px solid ${active ? '#4ade80' : '#333'}`,
-            borderRadius: 6,
-            color: active ? '#4ade80' : '#888',
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: 'monospace',
-            letterSpacing: 1,
-        }}>
-            {children}
-        </div>
-    )
-}
-
-function Hint({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-    return (
-        <div style={{
-            fontSize: 12,
-            color: '#737373',
-            marginTop: 8,
-            textAlign: 'center',
-            ...style,
-        }}>
-            {children}
-        </div>
-    )
-}
-
-function ErrorText({ children }: { children: React.ReactNode }) {
-    return (
-        <div style={{
-            marginTop: 12,
-            padding: '8px 12px',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: 6,
-            color: '#ef4444',
-            fontSize: 13,
-            textAlign: 'center',
-        }}>
-            {children}
-        </div>
-    )
-}
-
-function Spacer() {
-    return <div style={{ height: 16 }} />
-}
-
-function EntityList({ children }: { children: React.ReactNode }) {
-    return (
-        <div style={{
-            maxHeight: 300,
-            overflowY: 'auto',
-            border: '1px solid #262626',
-            borderRadius: 6,
-            marginTop: 8,
-        }}>
-            {children}
-        </div>
-    )
-}
-
-function CheckboxRow({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-    return (
-        <div
-            onClick={onClick}
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '8px 12px',
-                cursor: 'pointer',
-                borderBottom: '1px solid #1a1a1a',
-                fontSize: 13,
-            }}
-        >
-            {children}
-        </div>
-    )
-}
-
-function Checkbox(props: React.InputHTMLAttributes<HTMLInputElement>) {
-    return (
-        <input
-            type="checkbox"
-            {...props}
-            style={{ accentColor: '#4ade80', cursor: 'pointer', flexShrink: 0 }}
-        />
-    )
-}
-
-function Domain({ children }: { children: React.ReactNode }) {
-    return (
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#525252' }}>
-            {children}
-        </span>
     )
 }
