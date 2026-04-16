@@ -44,6 +44,7 @@ else
         done
         chromium-browser --start-fullscreen --incognito \
             --noerrdialogs --disable-infobars --disable-session-crashed-bubble \
+            --no-default-browser-check --no-first-run \
             http://localhost:3000/?view=screen >/dev/null 2>&1 &
         sleep 5
         wait "$next_pid"
