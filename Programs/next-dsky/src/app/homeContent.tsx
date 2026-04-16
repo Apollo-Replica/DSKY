@@ -1,254 +1,167 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { AUDIO_LOAD, NO_CONN, NO_CONN_UHOH } from "../utils/dskyStates";
-import { chunkedUpdate, getChangedChunks } from "@/utils/chunks";
-import { useSearchParams, useRouter } from 'next/navigation'
-import Keyboard from "./keyboard";
-import ClientList from "./clientList";
+import { useSearchParams } from 'next/navigation'
 import Alarms from "./alarms";
+import ClientList from "./clientList";
 import ELDisplay from "./elDisplay";
-import HelpPanel from "./helpPanel";
+import MenuOverlay from "./menu/menuOverlay";
+import DskyKeyboard from "./menu/dskyKeyboard";
+import DskyDisplayWrapper from "./menu/dskyDisplayWrapper";
+import { CUSTOM_APP_RENDERERS } from "./appRegistry";
+import { useAudio } from "./hooks/useAudio";
+import { useWebSocket } from "./hooks/useWebSocket";
+import { useDskyAnimation } from "./hooks/useDskyAnimation";
+import ViewToggle from "./viewToggle";
+
+/** Aspect ratio of the DSKY chassis image */
+const DSKY_AR = 484 / 558
 
 export default function HomeContent({ envOled, envDisplay }: { envOled: boolean, envDisplay: string }) {
   const searchParams = useSearchParams()
-  const router = useRouter()
   let oledMode = envOled ? 'yes' : 'no'
-  if(searchParams.get('oled') == '1') oledMode = 'yes'
+  if(searchParams.get('oled') === '0') oledMode = 'no'
+  else if(searchParams.get('oled') === '1') oledMode = 'yes'
 
   let displayType = envDisplay
   if(searchParams.get('display')) displayType = searchParams.get('display') as string
 
-  const initialState = AUDIO_LOAD
-  const [dskyState,setDskyState] = useState(initialState)
-  const [audioContext, setAudioContext] : any = useState(null)
-  const [audioFiles, setAudioFiles] : any = useState(null)
-  const [wsConnected, setWsConnected] = useState(false)
-  const [showKeyboard, setShowKeyboard] : any = useState(false)
-  const [configState, setConfigState] = useState<any>(null)
+  // View mode: query param ?view=screen overrides default 'full'
+  const viewParam = searchParams.get('view')
+  const [viewMode, setViewMode] = useState<'full' | 'screen'>(viewParam === 'screen' ? 'screen' : 'full')
 
-  const wsRef = useRef<WebSocket | null>(null)
-  const mountedRef = useRef(true)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const hasRedirectedRef = useRef(false)
-
-  const fetchAudioFiles = async () => {
-    // Cache audio files
-    let sampleRate
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      // Webkit sucks for audio
-      sampleRate = 32000
-    }
-    const newAudioContext : any = new (window.AudioContext)({sampleRate})
-    const newAudioFiles : any = {}
-    for(let i=1; i<=11; i++){
-      for(let j=0; j<5; j++){
-        const res = await fetch(`audio/clicks${i}_${j}.mp3`)
-        const arrayBuffer = await res.arrayBuffer()
-        const audioBuffer = await newAudioContext.decodeAudioData(arrayBuffer)
-        newAudioFiles[`${i}-${j}`] = audioBuffer
-      }
-    }
-    setAudioContext(newAudioContext)
-    setAudioFiles(newAudioFiles)
-  }
-
-  useEffect(()=>{ fetchAudioFiles() },[])
-
-  const connect = useCallback(() => {
-    if (!mountedRef.current || !audioContext) return
-    if (wsRef.current && (wsRef.current.readyState === WebSocket.CONNECTING || wsRef.current.readyState === WebSocket.OPEN)) {
-      return
-    }
-
-    console.log('[DSKY] Connecting WebSocket...')
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsURL = `${protocol}//${window.location.host}/ws`
-
-    const ws = new WebSocket(wsURL)
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      console.log('[DSKY] WebSocket connected')
-      if (mountedRef.current) setWsConnected(true)
-    }
-
-    ws.onclose = (event) => {
-      console.log('[DSKY] WebSocket closed. Code:', event.code)
-      if (mountedRef.current) {
-        setWsConnected(false)
-        reconnectTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) connect()
-        }, 1000)
-      }
-    }
-
-    ws.onerror = () => {
-      console.log('[DSKY] WebSocket error')
-    }
-  }, [audioContext])
-
-  // WebSocket connection effect
-  useEffect(() => {
-    if (!audioContext) return
-
-    mountedRef.current = true
-    connect()
-
-    // Agent ping interval
-    const agentInterval = setInterval(() => {
-      const ws = wsRef.current
-      if (ws?.readyState === WebSocket.OPEN && searchParams.get('agent') == "1") {
-        ws.send("agent")
-      }
-    }, 1000)
-
-    return () => {
-      console.log('[DSKY] Cleanup - unmounting')
-      mountedRef.current = false
-      clearInterval(agentInterval)
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-      }
-      if (wsRef.current) {
-        wsRef.current.close()
-        wsRef.current = null
-      }
-    }
-  }, [audioContext, connect, searchParams])
-
-  // Set up WebSocket message handling
-  useEffect(() => {
-    if(!audioContext || !audioFiles) return
-    const ws = wsRef.current
-    if(!ws) return
-
-    const hookData = {
-      lastState: dskyState,
-      audioContext,
-      audioFiles,
-      setDskyState
-    }
-
-    let animationLock = 0
-    let queuedTimeout: NodeJS.Timeout | null
-
-    const handleMessage = (event: MessageEvent) => {
-      if(queuedTimeout) clearTimeout(queuedTimeout)
-      const newState = JSON.parse(event.data);
-
-      // If config is not ready, navigate to /config (only once)
-      if (newState.config && !newState.config.ready) {
-        if (!hasRedirectedRef.current) {
-          hasRedirectedRef.current = true
-          router.push('/config')
-        }
-        return
-      }
-
-      // Save config state for help panel (only when it changes meaningfully)
-      if (newState.config && newState.config.ready) {
-        setConfigState((prev: any) => {
-          if (prev?.inputSource === newState.config.inputSource) return prev
-          return newState.config
-        })
-      }
-
-      const changedChunks = getChangedChunks(hookData.lastState,newState)
-      const animatedStateUpdate = () =>{
-        animationLock = Date.now() + (30 * changedChunks.length) + 30
-        chunkedUpdate(newState, hookData)
-      }
-      const remainingLockTime = animationLock - Date.now()
-      if(remainingLockTime <= 0){
-        animatedStateUpdate()
-      }else{
-        queuedTimeout = setTimeout(animatedStateUpdate, remainingLockTime)
-      }
-    }
-
-    ws.addEventListener('message', handleMessage)
-
-    const relayKeyPress = (event: KeyboardEvent) => {
-      const currentWs = wsRef.current
-      if(event.key.length == 1 && !event.repeat && currentWs?.readyState === WebSocket.OPEN){
-        currentWs.send(event.key)
-      }
-    }
-    const relayKeyRelease = (event: KeyboardEvent) => {
-      const currentWs = wsRef.current
-      if((event.key == 'p' || event.key == 'P') && currentWs?.readyState === WebSocket.OPEN){
-        currentWs.send('O')
-      }
-    }
-    window.addEventListener('keydown', relayKeyPress);
-    window.addEventListener('keyup', relayKeyRelease);
-
-    // Cleanup function
-    return () => {
-      ws.removeEventListener('message', handleMessage)
-      window.removeEventListener('keydown', relayKeyPress);
-      window.removeEventListener('keyup', relayKeyRelease);
-    };
-  }, [wsConnected, audioFiles, audioContext]);
-
-  useEffect(()=>{
-    if(!audioContext || !audioFiles) return
-
-    const hookData = {
-      lastState: dskyState,
-      cancelUpdates: false,
-      audioContext,
-      audioFiles,
-      setDskyState
-    }
-
-    let noConnTimeout1 : any
-    let noConnTimeout2 : any
-    let noConnInterval1 : any
-    let noConnInterval2 : any
-    if(!wsConnected) {
-      noConnTimeout1 = setTimeout(()=> {
-        noConnInterval1 = setInterval(()=> chunkedUpdate(NO_CONN, hookData),1000)
-      }, 1000)
-      noConnTimeout2 = setTimeout(()=> {
-        noConnInterval2 = setInterval(()=> chunkedUpdate(NO_CONN_UHOH, hookData),1000)
-      }, 2000)
-    }
-
-    // Cleanup function
-    return () => {
-      if(noConnTimeout1) {
-        clearTimeout(noConnTimeout1)
-      }
-      if(noConnTimeout2) {
-        clearTimeout(noConnTimeout2)
-      }
-      if(noConnInterval1){
-        clearInterval(noConnInterval1)
-      }
-      if(noConnInterval2){
-        clearInterval(noConnInterval2)
-      }
-    };
-  }, [wsConnected, audioFiles, audioContext]);
-
-  const sendKey = useCallback((key: string) => {
-    const ws = wsRef.current
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(key)
-    }
+  const viewModeRef = useRef(viewMode)
+  viewModeRef.current = viewMode
+  const toggleViewMode = useCallback(() => {
+    const next = viewModeRef.current === 'full' ? 'screen' : 'full'
+    setViewMode(next)
+    const params = new URLSearchParams(window.location.search)
+    if (next === 'full') params.delete('view')
+    else params.set('view', 'screen')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }, [])
+
+  // Audio mute toggle (client-side only)
+  const [muted, setMuted] = useState(searchParams.get('mute') === '1')
+  const mutedRef = useRef(muted)
+  mutedRef.current = muted
+  const toggleMuted = useCallback(() => {
+    const next = !mutedRef.current
+    setMuted(next)
+    const params = new URLSearchParams(window.location.search)
+    if (next) params.set('mute', '1')
+    else params.delete('mute')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }, [])
+
+  // Track how much the DSKY container has shrunk on narrow viewports (1 = full size)
+  const [containerRatio, setContainerRatio] = useState(1)
+
+  useEffect(() => {
+    const update = () => {
+      const idealWidth = window.innerHeight * 0.96 * DSKY_AR
+      setContainerRatio(Math.min(1, window.innerWidth / idealWidth))
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
+  // --- Hooks ---
+
+  const { audioContext, audioFiles } = useAudio()
+  const { wsRef, wsConnected, serverState, sendKey, sendMessage } = useWebSocket({
+    audioContext,
+    agentMode: searchParams.get('agent') === '1',
+  })
+  const dskyState = useDskyAnimation({ wsRef, wsConnected, audioContext, audioFiles, serverState, mutedRef })
+
+  // --- Render helpers ---
 
   const opacityEL = dskyState.Standby ? 0 : (dskyState.DisplayBrightness ?? 127) / 127
   const opacityStatus = (dskyState.StatusBrightness ?? 127) / 127
+
+  const appId = serverState?.app?.id
+  const CustomAppComponent = appId ? CUSTOM_APP_RENDERERS[appId] : undefined
+
+  const renderDisplayContent = () => {
+    if (CustomAppComponent && serverState) {
+      return <CustomAppComponent serverState={serverState} />
+    }
+    return <ELDisplay dskyState={dskyState} opacity={opacityEL} />
+  }
+
+  if (viewMode === 'full') {
+    return (
+      <main style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#000',
+      }}>
+        <div style={{
+          position: 'relative',
+          width: `min(calc(96vh * ${DSKY_AR}), 100vw)`,
+          aspectRatio: '484 / 558',
+        }}>
+
+          {/* DSKY chassis image */}
+          <img
+            src="./dsky.png"
+            alt="DSKY unit"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
+          />
+
+          <DskyDisplayWrapper mode="overlay" displayType={displayType} containerRatio={containerRatio}>
+            {!serverState?.menu?.isOpen && renderDisplayContent()}
+            <MenuOverlay
+              serverState={serverState}
+              clients={dskyState?.clients || []}
+              wsConnected={wsConnected}
+              sendMessage={sendMessage}
+            />
+          </DskyDisplayWrapper>
+
+          <Alarms dskyState={dskyState} opacity={opacityStatus} />
+          <DskyKeyboard sendKey={sendKey} />
+        </div>
+        <ClientList clients={dskyState?.clients || []} />
+        <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} muted={muted} onToggleMuted={toggleMuted} />
+      </main>
+    )
+  }
+
+  // Screen-only mode
   return (
-    <main className={`flex min-h-screen flex-col items-center justify-between display-${displayType} oled-${oledMode} keyboard-${showKeyboard?1:0}`} >
-      <Keyboard sendKey={sendKey} showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard} />
+    <main style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
+    }}>
+      <div className="screen-mode-layout">
+        <div className="screen-mode-alarms">
+          <Alarms dskyState={dskyState} opacity={opacityStatus} mode="screen" />
+        </div>
+        <div className="screen-mode-display">
+          <DskyDisplayWrapper mode="screen">
+            {!serverState?.menu?.isOpen && renderDisplayContent()}
+            <MenuOverlay
+              serverState={serverState}
+              clients={dskyState?.clients || []}
+              wsConnected={wsConnected}
+              sendMessage={sendMessage}
+              mode="screen"
+            />
+          </DskyDisplayWrapper>
+        </div>
+      </div>
       <ClientList clients={dskyState?.clients || []} />
-      <Alarms dskyState={dskyState} opacity={opacityStatus} />
-      <ELDisplay dskyState={dskyState} opacity={opacityEL} />
-      <HelpPanel config={configState} />
+      <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} muted={muted} onToggleMuted={toggleMuted} />
     </main>
   );
 }

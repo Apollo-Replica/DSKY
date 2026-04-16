@@ -129,17 +129,26 @@ To remotely view and control the Orange Pi's display:
 # Set a VNC password
 x11vnc -storepasswd
 
-# Create autostart entry
-cat > ~/.config/autostart/x11vnc.desktop << 'EOF'
-[Desktop Entry]
-Encoding=UTF-8
-Type=Application
-Name=X11VNC
-Exec=x11vnc -forever -usepw -display :0
-StartupNotify=false
-Terminal=false
-Hidden=false
+# Create a systemd service (more reliable than autostart desktop entries)
+sudo tee /etc/systemd/system/x11vnc.service << 'EOF'
+[Unit]
+Description=x11vnc VNC server
+After=display-manager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/x11vnc -forever -usepw -display :0 -auth guess
+User=orangepi
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target
 EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable x11vnc
+sudo systemctl start x11vnc
 ```
 
 ## WiFi Connect (optional)

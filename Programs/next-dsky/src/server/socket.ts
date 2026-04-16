@@ -1,19 +1,19 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { IncomingMessage } from 'http'
 import { V35_TEST } from '../utils/dskyStates'
-import { ConfigState } from './integrations'
+import type { ServerState } from '../types/serverState'
 
 let wss: WebSocketServer | null = null
 let listener: (data: Buffer) => Promise<void> = async (_data) => {}
 export const setWebSocketListener = (newListener: (data: Buffer) => Promise<void>) => { listener = newListener }
 
-let configListener: ((type: string, data?: any) => void) | null = null
-export const setConfigListener = (newListener: (type: string, data?: any) => void) => {
-    configListener = newListener
+let messageListener: ((type: string, data?: any) => void) | null = null
+export const setMessageListener = (newListener: (type: string, data?: any) => void) => {
+    messageListener = newListener
 }
 
 let state = V35_TEST
-let currentConfigState: ConfigState | null = null
+let currentServerState: ServerState | null = null
 let clientsData = new Map<WebSocket, { country?: string, ip: string }>()
 
 // Function to get the country from an IP (simplified - no geoip for now)
@@ -46,22 +46,22 @@ const getStateMessage = (connection: WebSocket, dskyState: any): string => {
 
     return JSON.stringify({
         ...dskyState,
-        config: currentConfigState,
+        serverState: currentServerState,
         clients: clientsArray
     })
 }
 
-const handleConfigMessage = (message: string): boolean => {
+const handleClientMessage = (message: string): boolean => {
     try {
         const data = JSON.parse(message)
-        if (data.type && data.type.startsWith('config:')) {
-            if (configListener) {
-                configListener(data.type, data)
+        if (data.type && (data.type.startsWith('action:') || data.type.startsWith('config:'))) {
+            if (messageListener) {
+                messageListener(data.type, data)
             }
             return true
         }
     } catch (e) {
-        // Not JSON, not a config message
+        // Not JSON, not a structured message
     }
     return false
 }
@@ -82,8 +82,8 @@ export const initWebSocket = (webSocketServer: WebSocketServer) => {
                 clientsData.delete(ws)
                 return
             }
-            // Check if it's a config message
-            if (handleConfigMessage(message)) {
+            // Check if it's a structured message (action:* or config:*)
+            if (handleClientMessage(message)) {
                 return
             }
             listener(data)
@@ -138,11 +138,11 @@ export const getWebSocket = (): WebSocketServer | null => {
     return wss
 }
 
-// Broadcast config state to all clients
-export const broadcastConfigState = (configState: ConfigState) => {
+// Broadcast server state to all clients
+export const broadcastServerState = (serverState: ServerState) => {
     if (!wss) return
 
-    currentConfigState = configState
+    currentServerState = serverState
 
     for (const connection of wss.clients) {
         if (connection.readyState === WebSocket.OPEN) {

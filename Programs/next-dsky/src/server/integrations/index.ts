@@ -6,8 +6,6 @@ import { BridgeIntegration } from './bridge'
 import { YaAGCIntegration } from './yaAGC'
 import { RandomIntegration } from './random'
 import { HomeAssistantIntegration } from './homeassistant'
-import { ConfigIntegration } from './config'
-
 // Export the base class for type usage
 export { AgcIntegration } from './AgcIntegration'
 
@@ -19,7 +17,6 @@ export { BridgeIntegration } from './bridge'
 export { YaAGCIntegration } from './yaAGC'
 export { RandomIntegration } from './random'
 export { HomeAssistantIntegration } from './homeassistant'
-export { ConfigIntegration, type ConfigState, type ConfigResult, getInputSources, YAAGC_VERSIONS } from './config'
 
 /**
  * Registry of all available AGC integrations.
@@ -28,14 +25,13 @@ export { ConfigIntegration, type ConfigState, type ConfigResult, getInputSources
  */
 function getRegistry(): Record<string, new () => AgcIntegration> {
     return {
-        config: ConfigIntegration,
         reentry: ReentryIntegration,
         nassp: NASSPIntegration,
         ksp: KSPIntegration,
         bridge: BridgeIntegration,
         yaagc: YaAGCIntegration,
         random: RandomIntegration,
-        ...(process.env.DSKY_HOMEASSISTANT === '1' ? { homeassistant: HomeAssistantIntegration } : {}),
+        homeassistant: HomeAssistantIntegration,
     }
 }
 

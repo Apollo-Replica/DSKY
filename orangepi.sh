@@ -2,7 +2,8 @@
 
 # DSKY launcher for Orange Pi
 # - Starts `next-dsky` (server + UI) and opens Chromium fullscreen
-# - Keeps the existing `cron` mode (re-open Chromium if it died)
+# - In appliance mode (default): sets up display, black screen until ready
+# - Cron mode: re-opens Chromium if it crashed
 
 if [ "$1" = "cron" ]; then
     killall chromium-browser chromium &>/dev/null
@@ -14,15 +15,31 @@ if [ "$1" = "cron" ]; then
     fi
 
 else
-    xttitle next-dsky
-    unclutter -idle 3 -root &>/dev/null &
+    # Black screen immediately, then rotate, then show splash
+    xsetroot -solid black
+    sleep 2
+    xrandr --output HDMI-1 --transform 0,-1,544,1,0,0,0,0,1
+
+    # Now set the splash (after rotation so it uses the correct resolution)
+    SPLASH=~/DSKY/Programs/orangepi-utilities/splash.png
+    if [ -f "$SPLASH" ]; then
+        feh --bg-fill --no-fehbg "$SPLASH"
+    fi
+
+    # Disable screen blanking and power management
+    xset s off
+    xset -dpms
+    xset s noblank
+
+    # Hide cursor immediately
+    unclutter -idle 0 -root &>/dev/null &
 
     while true; do
-        wmctrl -a next-dsky
         cd ~/DSKY/Programs/next-dsky
         npm start -- \
             -s /dev/ttyUSB0 \
             --shutdown 'shutdown -h now' \
+            --reboot 'shutdown -r now' \
             --wifi-connect "$@" &
         next_pid=$!
         killall chromium-browser chromium &>/dev/null
@@ -31,7 +48,10 @@ else
             curl -fsS http://localhost:3000 >/dev/null 2>&1 && break
             sleep 1
         done
-        chromium-browser --start-fullscreen --incognito http://localhost:3000 >/dev/null 2>&1 &
+        chromium-browser --start-fullscreen --incognito \
+            --noerrdialogs --disable-infobars --disable-session-crashed-bubble \
+            --no-default-browser-check --no-first-run \
+            http://localhost:3000/?view=screen >/dev/null 2>&1 &
         sleep 5
         wait "$next_pid"
     done

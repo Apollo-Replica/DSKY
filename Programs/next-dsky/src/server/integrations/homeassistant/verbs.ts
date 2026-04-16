@@ -12,11 +12,9 @@ const displayNoun = (ctx: AgcContext): void => {
     ctx.state.register3 = numberToString(noun[2])
 }
 
-export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
-    const verbs: Record<string, VerbHandler> = {}
-
-    // V06 — Display noun values (one-shot)
-    verbs['06'] = async (enter = false, pro = false) => {
+// V06 — Display noun values (one-shot)
+const createV06 = (ctx: AgcContext, verbs: Record<string, VerbHandler>): VerbHandler => {
+    return async (enter = false, pro = false) => {
         try {
             if (enter || pro) {
                 const previousVerb = ctx.state.verbStack[ctx.state.verbStack.length - 1]
@@ -39,9 +37,11 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             console.log('[HA] V06 fail')
         }
     }
+}
 
-    // V16 — Monitor noun values (auto-refresh)
-    verbs['16'] = async (enter = false, pro = false) => {
+// V16 — Monitor noun values (auto-refresh)
+const createV16 = (ctx: AgcContext, verbs: Record<string, VerbHandler>): VerbHandler => {
+    return async (enter = false, pro = false) => {
         try {
             if ((enter || pro) && ctx.state.verb === '16') {
                 const previousVerb = ctx.state.verbStack[ctx.state.verbStack.length - 1]
@@ -67,42 +67,41 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             console.log('[HA] V16 fail')
         }
     }
+}
 
-    // V21/V22/V23 — Load Register 1/2/3
-    const createLoadRegisterVerb = (registerIndex: 0 | 1 | 2): VerbHandler => {
-        const registerKey = `register${registerIndex + 1}` as 'register1' | 'register2' | 'register3'
-        return (enter = false, pro = false) => {
-            if (pro) return
-            try {
-                if (!ctx.state.verbNounFlashing) {
-                    ctx.state.inputMode = registerKey
-                    ctx.state.verbNounFlashing = true
-                    const noun = ctx.getNounValues(ctx.state.noun)
-                    ctx.state.register1 = registerIndex === 0 ? '' : numberToString(noun[0])
-                    ctx.state.register2 = registerIndex === 1 ? '' : numberToString(noun[1])
-                    ctx.state.register3 = registerIndex === 2 ? '' : numberToString(noun[2])
+// V21/V22/V23 — Load Register 1/2/3
+const createLoadRegisterVerb = (ctx: AgcContext, verbs: Record<string, VerbHandler>, registerIndex: 0 | 1 | 2): VerbHandler => {
+    const registerKey = `register${registerIndex + 1}` as 'register1' | 'register2' | 'register3'
+    return (enter = false, pro = false) => {
+        if (pro) return
+        try {
+            if (!ctx.state.verbNounFlashing) {
+                ctx.state.inputMode = registerKey
+                ctx.state.verbNounFlashing = true
+                const noun = ctx.getNounValues(ctx.state.noun)
+                ctx.state.register1 = registerIndex === 0 ? '' : numberToString(noun[0])
+                ctx.state.register2 = registerIndex === 1 ? '' : numberToString(noun[1])
+                ctx.state.register3 = registerIndex === 2 ? '' : numberToString(noun[2])
+            } else {
+                ctx.state.inputMode = ''
+                ctx.setNounValue(ctx.state.noun, registerIndex, Number(ctx.state[registerKey]) || 0)
+                ctx.state.verbNounFlashing = false
+                const previousVerb = ctx.state.verbStack[ctx.state.verbStack.length - 1]
+                if (previousVerb) {
+                    verbs[previousVerb](enter, pro)
                 } else {
-                    ctx.state.inputMode = ''
-                    ctx.setNounValue(ctx.state.noun, registerIndex, Number(ctx.state[registerKey]) || 0)
-                    ctx.state.verbNounFlashing = false
-                    const previousVerb = ctx.state.verbStack[ctx.state.verbStack.length - 1]
-                    if (previousVerb) {
-                        verbs[previousVerb](enter, pro)
-                    } else {
-                        verbs['06'](true, false)
-                    }
+                    verbs['06'](true, false)
                 }
-            } catch (e) {
-                console.log(`[HA] V2${registerIndex + 1} fail`, e)
             }
+        } catch (e) {
+            console.log(`[HA] V2${registerIndex + 1} fail`, e)
         }
     }
-    verbs['21'] = createLoadRegisterVerb(0)
-    verbs['22'] = createLoadRegisterVerb(1)
-    verbs['23'] = createLoadRegisterVerb(2)
+}
 
-    // V24 — Load Register 1 + 2 (chains V21 -> V22)
-    verbs['24'] = (enter = false, pro = false) => {
+// V24 — Load Register 1 + 2 (chains V21 -> V22)
+const createV24 = (ctx: AgcContext, verbs: Record<string, VerbHandler>): VerbHandler => {
+    return (enter = false, pro = false) => {
         if (pro) return
         try {
             if (ctx.state.verb === '21') {
@@ -126,9 +125,11 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             console.log('[HA] V24 fail', e)
         }
     }
+}
 
-    // V25 — Load Register 1 + 2 + 3 (chains V21 -> V22 -> V23)
-    verbs['25'] = (enter = false, pro = false) => {
+// V25 — Load Register 1 + 2 + 3 (chains V21 -> V22 -> V23)
+const createV25 = (ctx: AgcContext, verbs: Record<string, VerbHandler>): VerbHandler => {
+    return (enter = false, pro = false) => {
         if (pro) return
         try {
             if (ctx.state.verb === '21') {
@@ -155,9 +156,11 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             console.log('[HA] V25 fail', e)
         }
     }
+}
 
-    // V35 — Lamp Test (5 seconds)
-    verbs['35'] = (enter = false, pro = false) => {
+// V35 — Lamp Test (5 seconds)
+const createV35 = (ctx: AgcContext): VerbHandler => {
+    return (enter = false, pro = false) => {
         if (pro) return
         ctx.state.lightTest = 1
         ctx.state.program = '88'
@@ -178,9 +181,11 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             ctx.state.register3 = '+88888'
         }, 5000)
     }
+}
 
-    // V37 — Change Program
-    verbs['37'] = (enter = false, pro = false) => {
+// V37 — Change Program
+const createV37 = (ctx: AgcContext): VerbHandler => {
+    return (enter = false, pro = false) => {
         if (pro) return
         try {
             if (!ctx.state.verbNounFlashing) {
@@ -205,9 +210,11 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             console.log('[HA] V37 fail')
         }
     }
+}
 
-    // V40 — Toggle switch (on/off) for entity in R1 of current noun
-    verbs['40'] = async (enter = false, pro = false) => {
+// V40 — Toggle switch (on/off) for entity in R1 of current noun
+const createV40 = (ctx: AgcContext, verbs: Record<string, VerbHandler>): VerbHandler => {
+    return async (enter = false, pro = false) => {
         if (pro) return
         try {
             if (!enter) return
@@ -236,7 +243,6 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             await ctx.callService(domain, service, { entity_id: entityId })
 
             ctx.state.compActy = false
-            // Show updated state
             ctx.state.verb = '16'
             ctx.state.keyRel = ['16', ctx.state.noun]
             ctx.state.keyRelMode = true
@@ -246,6 +252,21 @@ export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
             ctx.state.compActy = false
         }
     }
+}
+
+export const createVerbs = (ctx: AgcContext): Record<string, VerbHandler> => {
+    const verbs: Record<string, VerbHandler> = {}
+
+    verbs['06'] = createV06(ctx, verbs)
+    verbs['16'] = createV16(ctx, verbs)
+    verbs['21'] = createLoadRegisterVerb(ctx, verbs, 0)
+    verbs['22'] = createLoadRegisterVerb(ctx, verbs, 1)
+    verbs['23'] = createLoadRegisterVerb(ctx, verbs, 2)
+    verbs['24'] = createV24(ctx, verbs)
+    verbs['25'] = createV25(ctx, verbs)
+    verbs['35'] = createV35(ctx)
+    verbs['37'] = createV37(ctx)
+    verbs['40'] = createV40(ctx, verbs)
 
     return verbs
 }

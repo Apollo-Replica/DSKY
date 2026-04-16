@@ -1,0 +1,7 @@
+@font-face {
+  font-family: 'Gorton';
+  src: url('/fonts/gorton-normal.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

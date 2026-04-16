@@ -1,3 +1,4 @@
+@import url('fonts.css');
 @import url('digit.css');
 @import url('sign.css');
 @import url('programverbnoun.css');
@@ -6,8 +7,7 @@
 @import url('register3.css');
 @import url('alarms.css');
 @import url('clients.css');
-@import url('keyboard.css');
-@import url('help.css');
+@import url('menu.css');
 @import "tailwindcss";
 
 :root{
@@ -27,13 +27,6 @@
   --margin-top: 10vh;
 }
 
-.oled-yes{
-  background-color: #000000;
-}
-.oled-no{
-  background-color: #3f3b30ff;
-}
-
 body {
   overflow-y: hidden;
   color: white;
@@ -45,10 +38,20 @@ body {
 
 .ELDisplay{
   position: absolute;
+  inset: 0;
+  margin: auto;
   width: calc(52.8vh * var(--scale));
-  height:calc(100vh *  var(--scale));
-  margin-top: var(--margin-top);
-  margin-left: var(--margin-left);
+  height: calc(100vh * var(--scale));
+}
+
+.dsky-display-wrapper .ELDisplay{
+  margin: -0.7vh 1vh;
+  transform: scale(1.08, 1.09);
+}
+
+.screen-mode-display .ELDisplay{
+  margin: -2.1vh -0.3vh;
+  transform: scale(1.06, 1.07);
 }
 
 .Alarms{
@@ -74,13 +77,47 @@ body {
     --margin-top: -3vh;
   }
 
-  .ELDisplay {
+  .ELDisplay:not(.dsky-display-wrapper .ELDisplay, .screen-mode-display .ELDisplay) {
     margin-left: calc(60vh * var(--scale)) !important;
   }
   .Alarms{
     display:block;
   }
+
+  /* Screen mode: show alarms sidebar on wide screens */
+  .screen-mode-alarms {
+    display: block !important;
+  }
 }
+
+/* Screen mode layout */
+.screen-mode-layout {
+  --scale: 1;
+  --margin-top: 0;
+  --margin-left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6vh;
+  height: 100vh;
+  width: 100%;
+}
+
+/* Screen mode: alarms hidden by default */
+.screen-mode-alarms {
+  display: none;
+  position: relative;
+  height: 100vh;
+  aspect-ratio: 1902 / 3206;
+}
+
+/* Screen mode display area — matches ELDisplay natural size */
+.screen-mode-display {
+  position: relative;
+  width: calc(52.8vh * var(--scale));
+  height: calc(100vh * var(--scale));
+}
+
 
 .mask{
   z-index: 999;
