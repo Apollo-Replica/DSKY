@@ -39,7 +39,7 @@ body {
 .ELDisplay{
   position: absolute;
   inset: 0;
-  margin: -.4vh auto;
+  margin: -.6vh auto;
   width: calc(52.8vh * var(--scale));
   height:calc(100vh *  var(--scale));
   transform: scale(1.04, 1.06);
@@ -107,7 +107,6 @@ body {
   position: relative;
   width: calc(52.8vh * var(--scale));
   height: calc(100vh * var(--scale));
-  overflow: hidden;
 }
 
 
