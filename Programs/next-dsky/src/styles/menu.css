@@ -22,3 +22,23 @@
 [aria-label="DSKY Menu"] {
     container-type: size;
 }
+
+/* Minimal scrollbar — just a thin green bar, no track */
+.menu-scroll-area::-webkit-scrollbar {
+    width: 2px;
+}
+.menu-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+.menu-scroll-area::-webkit-scrollbar-thumb {
+    background: var(--menu-primary);
+}
+.menu-scroll-area::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+.menu-scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: var(--menu-primary) transparent;
+}

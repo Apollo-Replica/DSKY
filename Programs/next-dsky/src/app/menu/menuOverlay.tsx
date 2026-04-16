@@ -56,6 +56,13 @@ export default function MenuOverlay({
         }
     }, [isOpen])
 
+    // Auto-scroll the selected card into view
+    useEffect(() => {
+        if (!isOpen) return
+        const el = overlayRef.current?.querySelector('[aria-selected="true"]') as HTMLElement | null
+        el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }, [isOpen, menuState?.selectedIndex, menuState?.activeScreen])
+
     if (!isOpen || !menuState || !serverState) return null
 
     const activeScreen = menuState.activeScreen
@@ -66,7 +73,7 @@ export default function MenuOverlay({
         // Card-grid screens: render from menuModel
         if (CARD_GRID_SCREENS.has(activeScreen)) {
             const items = getScreenItems(activeScreen, serverState, menuState)
-            const columns = activeScreen === 'networkInterface' ? 1 : undefined
+            const columns = (activeScreen === 'networkInterface' || activeScreen === 'serialSelect') ? 1 : undefined
 
             return (
                 <>
@@ -154,11 +161,11 @@ export default function MenuOverlay({
                 overflow: 'hidden',
             }}>
                 {/* Scrollable screen content */}
-                <div style={{
+                <div className="menu-scroll-area" style={{
                     flex: 1,
                     overflowY: 'auto',
                     overflowX: 'hidden',
-                    scrollbarWidth: 'none',
+                    paddingRight: '1.5cqw',
                 }}>
                     {renderScreen()}
                 </div>
