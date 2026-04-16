@@ -15,17 +15,16 @@ if [ "$1" = "cron" ]; then
     fi
 
 else
-    # Splash screen while everything loads
+    # Black screen immediately, then rotate, then show splash
+    xsetroot -solid black
+    sleep 2
+    xrandr --output HDMI-1 --transform 0,-1,544,1,0,0,0,0,1
+
+    # Now set the splash (after rotation so it uses the correct resolution)
     SPLASH=~/DSKY/Programs/orangepi-utilities/splash.jpeg
     if [ -f "$SPLASH" ]; then
         feh --bg-fill --no-fehbg "$SPLASH"
-    else
-        xsetroot -solid black
     fi
-
-    # Rotate display for portrait-mounted DSKY
-    sleep 2
-    xrandr --output HDMI-1 --transform 0,-1,544,1,0,0,0,0,1
 
     # Hide cursor immediately
     unclutter -idle 0 -root &>/dev/null &
