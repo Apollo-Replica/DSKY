@@ -11,6 +11,7 @@ interface UseDskyAnimationOptions {
     audioContext: AudioContext | null
     audioFiles: Record<string, AudioBuffer> | null
     serverState: ServerState | null
+    mutedRef: React.MutableRefObject<boolean>
 }
 
 /**
@@ -23,6 +24,7 @@ export function useDskyAnimation({
     audioContext,
     audioFiles,
     serverState,
+    mutedRef,
 }: UseDskyAnimationOptions) {
     const [dskyState, setDskyState] = useState(AUDIO_LOAD)
 
@@ -37,6 +39,7 @@ export function useDskyAnimation({
             audioContext,
             audioFiles,
             setDskyState,
+            muted: mutedRef,
         }
 
         let animationLock = 0
@@ -101,6 +104,7 @@ export function useDskyAnimation({
             audioContext,
             audioFiles,
             setDskyState,
+            muted: mutedRef,
         }
 
         let noConnTimeout1: ReturnType<typeof setTimeout> | undefined

@@ -61,7 +61,6 @@
     top: 16px;
     left: 16px;
     z-index: 50;
-    cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
@@ -80,6 +79,32 @@
     flex-direction: column;
     align-items: center;
     gap: 0.8vh;
+}
+
+.toggle-panel-wide {
+    width: auto;
+    padding: 1.1vh 1.2vh 1.4vh;
+}
+
+.toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 1.2vh;
+}
+
+.toggle-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8vh;
+    cursor: pointer;
+}
+
+.toggle-divider {
+    width: 1px;
+    height: 80%;
+    align-self: center;
+    background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.15) 30%, rgba(255,255,255,0.15) 70%, transparent 100%);
 }
 
 .toggle-screw {
@@ -191,7 +216,7 @@
 .view-toggle:hover .toggle-panel {
     border-color: #666;
 }
-.view-toggle:hover .toggle-knob {
+.toggle-group:hover .toggle-knob {
     background: linear-gradient(180deg, #e55 0%, #b33 50%, #922 100%);
 }
 

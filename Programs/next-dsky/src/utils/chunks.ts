@@ -121,7 +121,7 @@ export const chunkedUpdate = async (newState:any,hookData:any) => {
     const changedChunks: Number[] = getChangedChunks(hookData.lastState,newState)
 
     // Play clicking sound depending on amount of changed chunks
-    if(changedChunks.length){
+    if(changedChunks.length && !hookData.muted?.current){
       const audioBuffer = hookData.audioFiles[`${changedChunks.length}-${Math.floor(Math.random() * 5)}`]
       if(audioBuffer) {
         const source = hookData.audioContext.createBufferSource();

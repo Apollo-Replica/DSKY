@@ -42,6 +42,20 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }, [])
 
+  // Audio mute toggle (client-side only)
+  const [muted, setMuted] = useState(searchParams.get('mute') === '1')
+  const mutedRef = useRef(muted)
+  mutedRef.current = muted
+  const toggleMuted = useCallback(() => {
+    const next = !mutedRef.current
+    setMuted(next)
+    const params = new URLSearchParams(window.location.search)
+    if (next) params.set('mute', '1')
+    else params.delete('mute')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }, [])
+
   // Track how much the DSKY container has shrunk on narrow viewports (1 = full size)
   const [containerRatio, setContainerRatio] = useState(1)
 
@@ -62,7 +76,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
     audioContext,
     agentMode: searchParams.get('agent') === '1',
   })
-  const dskyState = useDskyAnimation({ wsRef, wsConnected, audioContext, audioFiles, serverState })
+  const dskyState = useDskyAnimation({ wsRef, wsConnected, audioContext, audioFiles, serverState, mutedRef })
 
   // --- Render helpers ---
 
@@ -137,7 +151,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           />
         </div>
         <ClientList clients={dskyState?.clients || []} />
-        <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} />
+        <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} muted={muted} onToggleMuted={toggleMuted} />
       </main>
     )
   }
@@ -167,7 +181,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
         </div>
       </div>
       <ClientList clients={dskyState?.clients || []} />
-      <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} />
+      <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} muted={muted} onToggleMuted={toggleMuted} />
     </main>
   );
 }
