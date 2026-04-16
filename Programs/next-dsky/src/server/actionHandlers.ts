@@ -184,6 +184,15 @@ const handleSetNetworkInterface = (data: any) => {
     updateNetwork({ interface: ip || null })
 }
 
+const handleReboot = () => {
+    if (!programOptions.reboot) {
+        console.log('[Server] Reboot not available (no --reboot arg)')
+        return
+    }
+    console.log('[Server] Executing reboot command...')
+    exec(programOptions.reboot)
+}
+
 const handleShutdown = () => {
     if (!programOptions.shutdown) {
         console.log('[Server] Shutdown not available (no --shutdown arg)')
@@ -206,6 +215,7 @@ export const dispatchAction = async (type: string, data?: any) => {
             break
         case 'action:list-interfaces':        handleListInterfaces(); break
         case 'action:set-network-interface':   handleSetNetworkInterface(data); break
+        case 'action:reboot':                 handleReboot(); break
         case 'action:shutdown':               handleShutdown(); break
         case 'action:enter-idle':
             await closeSerial()

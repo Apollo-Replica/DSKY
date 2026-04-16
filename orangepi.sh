@@ -34,6 +34,7 @@ else
         npm start -- \
             -s /dev/ttyUSB0 \
             --shutdown 'shutdown -h now' \
+            --reboot 'shutdown -r now' \
             --wifi-connect "$@" &
         next_pid=$!
         killall chromium-browser chromium &>/dev/null

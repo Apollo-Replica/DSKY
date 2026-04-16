@@ -12,6 +12,7 @@ export let serverState: ServerState = {
     ha: { configured: false },
     wifi: { available: false, running: false },
     shutdown: false,
+    reboot: false,
     baseUrl: null,
 }
 

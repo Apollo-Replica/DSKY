@@ -24,6 +24,7 @@ program
     .option('-m, --mode <string>', 'Skip config, use source directly')
     .option('-y, --yaagc <string>', 'yaAGC version')
     .option('--shutdown <string>', 'Shutdown command (PRO---)')
+    .option('--reboot <string>', 'Reboot command')
     .option('--wifi-connect', 'Enable WiFi setup (runs sudo wifi-connect --portal-ssid "DSKY Replica")')
     .option('-p, --port <number>', 'HTTP/WS port', '3000')
 program.parse()

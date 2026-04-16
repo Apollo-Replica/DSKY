@@ -40,7 +40,6 @@ function mainScreenItems(): MenuItemDef[] {
         { id: 'ha',       icon: '\u25CE', label: 'HOME ASST', action: { type: 'navigate', screen: 'haMenu' } },
         { id: 'apps',     icon: '\u25A6', label: 'APPS', action: { type: 'navigate', screen: 'apps' } },
         { id: 'commands', icon: '\u2630', label: 'COMMANDS', action: { type: 'navigate', screen: 'commands' } },
-        { id: 'random',   icon: '\u2684', label: 'RANDOM', action: { type: 'action', action: 'action:switch-app', data: { app: 'random' }, then: 'close' } },
         { id: 'settings', icon: '\u2699', label: 'SETTINGS', action: { type: 'navigate', screen: 'settings' } },
     ]
 }
@@ -69,6 +68,7 @@ function appsScreenItems(): MenuItemDef[] {
     return [
         { id: 'calculator', icon: '\u2211', label: 'CALCULATOR', action: { type: 'action', action: 'action:switch-app', data: { app: 'calculator' }, then: 'close' } },
         { id: 'clock',      icon: '\u25F4', label: 'CLOCK', action: { type: 'action', action: 'action:switch-app', data: { app: 'clock' }, then: 'close' } },
+        { id: 'random',     icon: '\u2684', label: 'RANDOM', action: { type: 'action', action: 'action:switch-app', data: { app: 'random' }, then: 'close' } },
         { id: 'games',      icon: '\u2B23', label: 'GAMES', action: { type: 'navigate', screen: 'games' } },
     ]
 }
@@ -106,6 +106,15 @@ function settingsScreenItems(serverState: ServerState): MenuItemDef[] {
             action: serverState.wifi.running
                 ? { type: 'navigate', screen: 'wifi' }
                 : { type: 'action+navigate', action: 'action:wifi-connect', screen: 'wifi' },
+        })
+    }
+
+    if (serverState.reboot) {
+        items.push({
+            id: 'reboot',
+            icon: '\u21BB',
+            label: 'REBOOT',
+            action: { type: 'action', action: 'action:reboot' },
         })
     }
 

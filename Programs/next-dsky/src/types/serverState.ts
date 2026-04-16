@@ -149,6 +149,7 @@ export interface ServerState {
     }
 
     shutdown: boolean
+    reboot: boolean
 
     /** Base URL for this server (e.g., http://192.168.1.50:3000) */
     baseUrl: string | null

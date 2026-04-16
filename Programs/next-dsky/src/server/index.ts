@@ -64,6 +64,7 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
 
     serverState.wifi.available = !!options.wifiConnect
     serverState.shutdown = !!options.shutdown
+    serverState.reboot = !!options.reboot
     serverState.serial.port = options.serial || null
 
     initMenuController({
