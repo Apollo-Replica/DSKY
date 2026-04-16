@@ -36,14 +36,22 @@ else
     echo "  WARNING: $BOOT_ENV not found. You may need to set kernel boot args manually."
 fi
 
-# 3. Configure LightDM for auto-login with custom session
+# 3. Create custom X session and register it with LightDM
 echo "[3/6] Configuring LightDM auto-login..."
+sudo tee /usr/share/xsessions/dsky.desktop > /dev/null << 'EOF'
+[Desktop Entry]
+Name=DSKY
+Exec=/home/orangepi/.xsession
+Type=Application
+EOF
+echo "  Created /usr/share/xsessions/dsky.desktop"
+
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
 sudo tee /etc/lightdm/lightdm.conf.d/50-appliance.conf > /dev/null << 'EOF'
 [Seat:*]
 autologin-user=orangepi
-autologin-session=default
-user-session=default
+autologin-session=dsky
+user-session=dsky
 EOF
 echo "  Created /etc/lightdm/lightdm.conf.d/50-appliance.conf"
 
