@@ -26,6 +26,11 @@ else
         feh --bg-fill --no-fehbg "$SPLASH"
     fi
 
+    # Disable screen blanking and power management
+    xset s off
+    xset -dpms
+    xset s noblank
+
     # Hide cursor immediately
     unclutter -idle 0 -root &>/dev/null &
 
