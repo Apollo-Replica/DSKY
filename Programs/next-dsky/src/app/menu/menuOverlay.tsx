@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react"
 import type { ServerState, MenuScreen } from "../../types/serverState"
 import type { DskyClient } from "../../types/dsky"
-import { SCREEN_AREA } from "./constants"
 import { getScreenItems } from "../../menu/menuModel"
 import MenuCard from "./menuCard"
 import MenuGrid from "./menuGrid"
@@ -117,29 +116,17 @@ export default function MenuOverlay({
         }
     }
 
-    const positionStyle = mode === 'screen'
-        ? {
-            position: 'absolute' as const,
-            inset: 0,
-        }
-        : {
-            position: 'absolute' as const,
-            left: `${SCREEN_AREA.left}%`,
-            top: `${SCREEN_AREA.top}%`,
-            width: `${SCREEN_AREA.right - SCREEN_AREA.left}%`,
-            height: `${SCREEN_AREA.bottom - SCREEN_AREA.top}%`,
-        }
-
     return (
         <div
             ref={overlayRef}
             className={mode === 'screen' ? 'menu-overlay-screen' : undefined}
             style={{
-                ...positionStyle,
+                position: 'absolute',
+                inset: 0,
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                zIndex: mode === 'screen' ? 1000 : 5,
+                zIndex: 5,
                 outline: 'none',
                 fontFamily: 'monospace',
             }}

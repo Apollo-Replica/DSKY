@@ -3,7 +3,7 @@ import { createSerial, createSerialFromConfig, closeSerial } from './serial'
 import { mdnsService } from './mdnsService'
 import { initCalculator, handleCalculatorKey } from './apps/calculatorApp'
 import { initClock, handleClockKey, getClockState, cleanup as cleanupClock } from './apps/clockApp'
-import { V35_TEST } from '../utils/dskyStates'
+import { V35_TEST, OFF_TEST } from '../utils/dskyStates'
 import { openMenu } from './menuController'
 import { serverState, setServerState, broadcast, updateApp, updateSerial, updateHa } from './stateManager'
 
@@ -92,6 +92,7 @@ export const startIntegration = async (config: IntegrationConfig) => {
 export const startCustomApp = (appId: string) => {
     console.log(`[Server] Starting custom app: ${appId}`)
     stopIntegration()
+    pendingUpdate = OFF_TEST
 
     if (appId === 'calculator') {
         const calcState = initCalculator()

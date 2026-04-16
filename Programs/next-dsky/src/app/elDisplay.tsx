@@ -6,15 +6,6 @@ import { Sign } from "./sign";
 const ELDisplay = ({dskyState, opacity}: {dskyState:any, opacity:number}) => {
     return (
         <>
-            <div className="ELDisplay">
-                <Image
-                    alt={'mask'}
-                    src={'./mask.svg'}
-                    width={1000}
-                    height={1000}
-                    className="mask"
-                />
-            </div>
             <div className="ELDisplay" style={{ opacity }}>
                 <Image
                     alt={'basic_segments'}
@@ -123,6 +114,15 @@ const ELDisplay = ({dskyState, opacity}: {dskyState:any, opacity:number}) => {
                 <Digit
                     className={'Register3D5'}
                     digit={dskyState.Register3D5}
+                />
+            </div>
+            <div className="ELDisplay">
+                <Image
+                    alt={'mask'}
+                    src={'./mask.svg'}
+                    width={1000}
+                    height={1000}
+                    className="mask"
                 />
             </div>
         </>

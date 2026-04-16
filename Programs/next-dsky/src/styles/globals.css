@@ -27,13 +27,6 @@
   --margin-top: 10vh;
 }
 
-.oled-yes{
-  background-color: #000000;
-}
-.oled-no{
-  background-color: #3f3b30ff;
-}
-
 body {
   overflow-y: hidden;
   color: white;
@@ -45,18 +38,11 @@ body {
 
 .ELDisplay{
   position: absolute;
+  inset: 0;
+  margin: -.4vh auto;
   width: calc(52.8vh * var(--scale));
   height:calc(100vh *  var(--scale));
-  margin-top: var(--margin-top);
-  margin-left: var(--margin-left);
-}
-
-.dsky-display-wrapper .ELDisplay{
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  margin: auto;
+  transform: scale(1.04, 1.06);
 }
 
 .Alarms{
@@ -121,12 +107,9 @@ body {
   position: relative;
   width: calc(52.8vh * var(--scale));
   height: calc(100vh * var(--scale));
+  overflow: hidden;
 }
 
-/* Neutralize old margin rules inside screen mode */
-.screen-mode-display .ELDisplay {
-  margin: 0 !important;
-}
 
 .mask{
   z-index: 999;

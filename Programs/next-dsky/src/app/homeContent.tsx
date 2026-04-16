@@ -4,10 +4,10 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from 'next/navigation'
 import Alarms from "./alarms";
 import ClientList from "./clientList";
+import ELDisplay from "./elDisplay";
 import MenuOverlay from "./menu/menuOverlay";
 import DskyKeyboard from "./menu/dskyKeyboard";
 import DskyDisplayWrapper from "./menu/dskyDisplayWrapper";
-import { SCREEN_AREA } from "./menu/constants";
 import { CUSTOM_APP_RENDERERS } from "./appRegistry";
 import { useAudio } from "./hooks/useAudio";
 import { useWebSocket } from "./hooks/useWebSocket";
@@ -86,24 +86,11 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
   const appId = serverState?.app?.id
   const CustomAppComponent = appId ? CUSTOM_APP_RENDERERS[appId] : undefined
 
-  const renderDisplayContent = (mode: 'overlay' | 'screen') => {
+  const renderDisplayContent = () => {
     if (CustomAppComponent && serverState) {
-      return (
-        <div style={{
-          position: 'absolute',
-          left: mode === 'screen' ? 0 : `${SCREEN_AREA.left}%`,
-          top: mode === 'screen' ? 0 : `${SCREEN_AREA.top}%`,
-          width: mode === 'screen' ? '100%' : `${SCREEN_AREA.right - SCREEN_AREA.left}%`,
-          height: mode === 'screen' ? '100%' : `${SCREEN_AREA.bottom - SCREEN_AREA.top}%`,
-          zIndex: 3,
-          overflow: 'hidden',
-          containerType: 'size',
-        }}>
-          <CustomAppComponent serverState={serverState} />
-        </div>
-      )
+      return <CustomAppComponent serverState={serverState} />
     }
-    return <DskyDisplayWrapper dskyState={dskyState} opacity={opacityEL} displayType={displayType} oledMode={oledMode} mode={mode} containerRatio={containerRatio} />
+    return <ELDisplay dskyState={dskyState} opacity={opacityEL} />
   }
 
   if (viewMode === 'full') {
@@ -121,17 +108,6 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           aspectRatio: '484 / 558',
         }}>
 
-          {/* Screen background color */}
-          <div style={{
-            position: 'absolute',
-            left: `${SCREEN_AREA.left}%`,
-            top: `${SCREEN_AREA.top}%`,
-            width: `${SCREEN_AREA.width}%`,
-            height: `${SCREEN_AREA.height}%`,
-            backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
-            zIndex: 0,
-          }} />
-
           {/* DSKY chassis image */}
           <img
             src="./dsky.png"
@@ -139,16 +115,18 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
           />
 
-          {!serverState?.menu?.isOpen && renderDisplayContent('overlay')}
+          <DskyDisplayWrapper mode="overlay" displayType={displayType} containerRatio={containerRatio}>
+            {!serverState?.menu?.isOpen && renderDisplayContent()}
+            <MenuOverlay
+              serverState={serverState}
+              clients={dskyState?.clients || []}
+              wsConnected={wsConnected}
+              sendMessage={sendMessage}
+            />
+          </DskyDisplayWrapper>
 
           <Alarms dskyState={dskyState} opacity={opacityStatus} />
           <DskyKeyboard sendKey={sendKey} />
-          <MenuOverlay
-            serverState={serverState}
-            clients={dskyState?.clients || []}
-            wsConnected={wsConnected}
-            sendMessage={sendMessage}
-          />
         </div>
         <ClientList clients={dskyState?.clients || []} />
         <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} muted={muted} onToggleMuted={toggleMuted} />
@@ -170,14 +148,16 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           <Alarms dskyState={dskyState} opacity={opacityStatus} mode="screen" />
         </div>
         <div className="screen-mode-display">
-          {!serverState?.menu?.isOpen && renderDisplayContent('screen')}
-          <MenuOverlay
-            serverState={serverState}
-            clients={dskyState?.clients || []}
-            wsConnected={wsConnected}
-            sendMessage={sendMessage}
-            mode="screen"
-          />
+          <DskyDisplayWrapper mode="screen">
+            {!serverState?.menu?.isOpen && renderDisplayContent()}
+            <MenuOverlay
+              serverState={serverState}
+              clients={dskyState?.clients || []}
+              wsConnected={wsConnected}
+              sendMessage={sendMessage}
+              mode="screen"
+            />
+          </DskyDisplayWrapper>
         </div>
       </div>
       <ClientList clients={dskyState?.clients || []} />

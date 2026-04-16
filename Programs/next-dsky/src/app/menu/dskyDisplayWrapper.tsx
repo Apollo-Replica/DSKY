@@ -1,29 +1,25 @@
 "use client"
 
-import ELDisplay from "../elDisplay"
-import type { DskyState } from "../../types/dsky"
 import { SCREEN_AREA } from "./constants"
 
 interface Props {
-    dskyState: DskyState
-    opacity: number
-    displayType: string
-    oledMode: string
+    displayType?: string
     mode: 'overlay' | 'screen'
     containerRatio?: number
+    children: React.ReactNode
 }
 
-export default function DskyDisplayWrapper({ dskyState, opacity, displayType, oledMode, mode, containerRatio = 1 }: Props) {
+export default function DskyDisplayWrapper({ displayType, mode, containerRatio = 1, children }: Props) {
 
     // --- SCREEN MODE ---
     if (mode === 'screen') {
-        return <ELDisplay dskyState={dskyState} opacity={opacity} />
+        return <>{children}</>
     }
 
     // --- OVERLAY MODE ---
     return (
         <div
-            className={`dsky-display-wrapper display-${displayType} oled-${oledMode}`}
+            className={`dsky-display-wrapper${displayType ? ` display-${displayType}` : ''}`}
             style={{
                 position: 'absolute',
                 left: `${SCREEN_AREA.left}%`,
@@ -32,13 +28,13 @@ export default function DskyDisplayWrapper({ dskyState, opacity, displayType, ol
                 height: `${SCREEN_AREA.height}%`,
                 overflow: 'hidden',
                 zIndex: 3,
-                backgroundColor: 'transparent',
+                containerType: 'size',
                 '--scale': 0.96 * containerRatio * SCREEN_AREA.height / 100,
                 '--margin-top': '0px',
                 '--margin-left': '0px',
             } as React.CSSProperties}
         >
-            <ELDisplay dskyState={dskyState} opacity={opacity} />
+            {children}
         </div>
     )
 }
