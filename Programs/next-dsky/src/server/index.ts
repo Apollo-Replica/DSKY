@@ -66,6 +66,7 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     serverState.shutdown = !!options.shutdown
     serverState.reboot = !!options.reboot
     serverState.serial.port = options.serial || null
+    serverState.ha.enabled = process.env.DSKY_HOMEASSISTANT === '1'
 
     initMenuController({
         handleAction: (action, data) => dispatchAction(action, data),
@@ -199,17 +200,21 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             })
         }
     } else {
-        const { hasPersistedConfig, loadPersistedConfig } = await import('./integrations/homeassistant/settings')
-        if (hasPersistedConfig()) {
-            console.log('[Server] Found persisted HA config, remembering for later')
-            const persisted = loadPersistedConfig()
-            updateHa({
-                configured: true,
-                url: persisted.url,
-                token: persisted.token,
-                entities: persisted.entities,
-                selectedIds: persisted.selectedEntityIds,
-            })
+        if (serverState.ha.enabled) {
+            const { hasPersistedConfig, loadPersistedConfig } = await import('./integrations/homeassistant/settings')
+            if (hasPersistedConfig()) {
+                console.log('[Server] Found persisted HA config, remembering for later')
+                const persisted = loadPersistedConfig()
+                updateHa({
+                    configured: true,
+                    url: persisted.url,
+                    token: persisted.token,
+                    entities: persisted.entities,
+                    selectedIds: persisted.selectedEntityIds,
+                })
+            }
+        } else {
+            console.log('[Server] Home Assistant disabled (set DSKY_HOMEASSISTANT=1 to enable)')
         }
         console.log('[Server] Starting idle')
         enterIdle()

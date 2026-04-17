@@ -86,6 +86,17 @@ export default function HaConfigContent() {
         )
     }
 
+    if (serverState && serverState.ha.enabled !== true) {
+        return (
+            <Page>
+                <Card>
+                    <Title>Home Assistant Disabled</Title>
+                    <Hint>Set <code>DSKY_HOMEASSISTANT=1</code> in the server environment to enable this integration.</Hint>
+                </Card>
+            </Page>
+        )
+    }
+
     // --- Configured state (not editing) ---
     if (isConfigured && !editing) {
         return (

@@ -34,14 +34,19 @@ const YAAGC_VERSIONS = [
 
 // --- Screen items ---
 
-function mainScreenItems(): MenuItemDef[] {
-    return [
+function mainScreenItems(serverState: ServerState): MenuItemDef[] {
+    const items: MenuItemDef[] = [
         { id: 'simulate', icon: '\u25C7', label: 'SIMULATE', action: { type: 'navigate', screen: 'simulate' } },
-        { id: 'ha',       icon: '\u25CE', label: 'HOME ASST', action: { type: 'navigate', screen: 'haMenu' } },
+    ]
+    if (serverState.ha.enabled) {
+        items.push({ id: 'ha', icon: '\u25CE', label: 'HOME ASST', action: { type: 'navigate', screen: 'haMenu' } })
+    }
+    items.push(
         { id: 'apps',     icon: '\u25A6', label: 'APPS', action: { type: 'navigate', screen: 'apps' } },
         { id: 'commands', icon: '\u2630', label: 'COMMANDS', action: { type: 'navigate', screen: 'commands' } },
         { id: 'settings', icon: '\u2699', label: 'SETTINGS', action: { type: 'navigate', screen: 'settings' } },
-    ]
+    )
+    return items
 }
 
 function haMenuScreenItems(serverState: ServerState): MenuItemDef[] {
@@ -207,7 +212,7 @@ function networkInterfaceScreenItems(serverState: ServerState): MenuItemDef[] {
  */
 export function getScreenItems(screen: MenuScreen, serverState: ServerState, _menuState: MenuState): MenuItemDef[] {
     switch (screen) {
-        case 'main':             return mainScreenItems()
+        case 'main':             return mainScreenItems(serverState)
         case 'haMenu':           return haMenuScreenItems(serverState)
         case 'simulate':         return simulateScreenItems()
         case 'apps':             return appsScreenItems()

@@ -9,7 +9,7 @@ export let serverState: ServerState = {
     serial: { port: null, available: [] },
     network: { interface: null, available: [], locked: false },
     bridge: { discovered: [], scanning: false },
-    ha: { configured: false },
+    ha: { enabled: false, configured: false },
     wifi: { available: false, running: false },
     shutdown: false,
     reboot: false,

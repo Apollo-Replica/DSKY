@@ -136,6 +136,7 @@ export interface ServerState {
     }
 
     ha: {
+        enabled: boolean
         configured: boolean
         url?: string
         token?: string
