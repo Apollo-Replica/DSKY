@@ -91,8 +91,15 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
         if (best) serverState.network.interface = best
     }
 
-    const ip = serverState.network.interface || pickBestInterface() || 'localhost'
-    serverState.baseUrl = `http://${ip}:${port}`
+    const baseUrlOverride = process.env.DSKY_BASE_URL?.trim()
+    if (baseUrlOverride) {
+        serverState.baseUrl = baseUrlOverride.replace(/\/+$/, '')
+        serverState.network.locked = true
+        console.log(`[Server] baseUrl overridden via DSKY_BASE_URL: ${serverState.baseUrl}`)
+    } else {
+        const ip = serverState.network.interface || pickBestInterface() || 'localhost'
+        serverState.baseUrl = `http://${ip}:${port}`
+    }
 
     // Initialize mDNS service (publishing only — baseUrl is always set above)
     if (process.env.DSKY_MDNS_DISABLED !== '1') {

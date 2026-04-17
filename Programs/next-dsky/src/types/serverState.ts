@@ -127,6 +127,7 @@ export interface ServerState {
     network: {
         interface: string | null
         available: NetworkInterfaceOption[]
+        locked: boolean
     }
 
     bridge: {

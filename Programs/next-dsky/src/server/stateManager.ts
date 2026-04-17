@@ -7,7 +7,7 @@ export let serverState: ServerState = {
     menu: { isOpen: false, activeScreen: 'main', selectedIndex: 0, screenHistory: [] },
     app: { id: null },
     serial: { port: null, available: [] },
-    network: { interface: null, available: [] },
+    network: { interface: null, available: [], locked: false },
     bridge: { discovered: [], scanning: false },
     ha: { configured: false },
     wifi: { available: false, running: false },

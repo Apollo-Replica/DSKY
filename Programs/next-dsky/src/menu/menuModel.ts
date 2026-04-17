@@ -85,7 +85,7 @@ function settingsScreenItems(serverState: ServerState): MenuItemDef[] {
         },
     ]
 
-    if ((serverState.network.available?.length ?? 0) > 1) {
+    if (!serverState.network.locked && (serverState.network.available?.length ?? 0) > 1) {
         items.push({
             id: 'network',
             icon: '\u25CE',
