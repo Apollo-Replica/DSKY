@@ -8,7 +8,6 @@ import MenuCard from "./menuCard"
 import MenuGrid from "./menuGrid"
 import CommandsScreen from "./screens/commandsScreen"
 import AboutScreen from "./screens/aboutScreen"
-import GamesScreen from "./screens/gamesScreen"
 import HaSetupScreen from "./screens/haSetupScreen"
 import WifiScreen from "./screens/wifiScreen"
 import BridgeManualScreen from "./screens/bridgeManualScreen"
@@ -205,8 +204,6 @@ export default function MenuOverlay({
                 return <CommandsScreen serverState={serverState} />
             case 'about':
                 return <AboutScreen serverState={serverState} wsConnected={wsConnected} clients={clients} />
-            case 'games':
-                return <GamesScreen />
             case 'haSetup':
                 return <HaSetupScreen serverState={serverState} />
             case 'wifi':

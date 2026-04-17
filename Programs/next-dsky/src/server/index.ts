@@ -20,7 +20,7 @@ function createKeyHandler(label: string) {
         const key = data.toString().toLowerCase().substring(0, 1)
         console.log(`[${label}] KeyPress: ${key}`)
 
-        if (key === 'o') return
+        if (key === 'o' && serverState.app.id !== 'games') return
 
         if (isWifiConnectRunning()) return
 

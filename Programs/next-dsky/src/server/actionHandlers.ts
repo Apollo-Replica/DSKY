@@ -37,7 +37,7 @@ const handleSwitchApp = async (data: any) => {
         return
     }
 
-    if (app === 'calculator' || app === 'clock') {
+    if (app === 'calculator' || app === 'clock' || app === 'games') {
         startCustomApp(app)
         return
     }
