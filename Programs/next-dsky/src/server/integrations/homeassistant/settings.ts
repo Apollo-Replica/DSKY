@@ -88,7 +88,12 @@ export const loadPersistedConfig = (): {
             })
         }
 
-        return { url: parsed.url, token: parsed.token, entities, selectedEntityIds }
+        return {
+            url: process.env.HA_URL || parsed.url,
+            token: process.env.HA_TOKEN || parsed.token,
+            entities,
+            selectedEntityIds,
+        }
     } catch {
         return { entities: [], selectedEntityIds: [] }
     }
