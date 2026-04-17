@@ -60,15 +60,21 @@ export default function HaSetupScreen({ serverState }: HaSetupScreenProps) {
 
             {/* URL below QR */}
             {haUrl && (
-                <div style={{
-                    fontSize: '2cqh',
-                    color: 'var(--menu-highlight)',
-                    fontWeight: 600,
-                    wordBreak: 'break-all',
-                    maxWidth: '90%',
-                }}>
+                <a
+                    href={haUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                        fontSize: '2cqh',
+                        color: 'var(--menu-highlight)',
+                        fontWeight: 600,
+                        wordBreak: 'break-all',
+                        maxWidth: '90%',
+                        textDecoration: 'underline',
+                    }}
+                >
                     {haUrl}
-                </div>
+                </a>
             )}
 
             <div style={{
