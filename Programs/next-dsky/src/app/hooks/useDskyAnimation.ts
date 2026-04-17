@@ -64,8 +64,14 @@ export function useDskyAnimation({
 
         ws.addEventListener('message', handleMessage)
 
+        const isTypingTarget = (target: EventTarget | null) => {
+            if (!(target instanceof HTMLElement)) return false
+            const tag = target.tagName
+            return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable
+        }
         const relayKeyPress = (event: KeyboardEvent) => {
             if (event.repeat) return
+            if (isTypingTarget(event.target)) return
             const key = event.key
             if (key.length === 1) {
                 const currentWs = wsRef.current
@@ -79,6 +85,7 @@ export function useDskyAnimation({
         }
         const relayKeyRelease = (event: KeyboardEvent) => {
             if (serverState?.menu?.isOpen) return
+            if (isTypingTarget(event.target)) return
             const currentWs = wsRef.current
             if ((event.key == 'p' || event.key == 'P') && currentWs?.readyState === WebSocket.OPEN) {
                 currentWs.send('O')

@@ -36,7 +36,7 @@ const YAAGC_VERSIONS = [
 
 function mainScreenItems(serverState: ServerState): MenuItemDef[] {
     const items: MenuItemDef[] = [
-        { id: 'simulate', icon: '\u25C7', label: 'SIMULATE', action: { type: 'navigate', screen: 'simulate' } },
+        { id: 'simulate', icon: 'rocket-svg', label: 'SIMS', action: { type: 'navigate', screen: 'simulate' } },
     ]
     if (serverState.ha.enabled) {
         items.push({ id: 'ha', icon: '\u25CE', label: 'HOME ASST', action: { type: 'navigate', screen: 'haMenu' } })
@@ -61,11 +61,11 @@ function haMenuScreenItems(serverState: ServerState): MenuItemDef[] {
 
 function simulateScreenItems(): MenuItemDef[] {
     return [
-        { id: 'yaagc',   icon: '\u25B3', label: 'yaAGC', action: { type: 'navigate', screen: 'yaAgcSelect' } },
-        { id: 'nassp',   icon: '\u2609', label: 'NASSP', action: { type: 'action', action: 'action:switch-app', data: { app: 'nassp' }, then: 'close' } },
-        { id: 'reentry', icon: '\u2604', label: 'REENTRY', action: { type: 'action', action: 'action:switch-app', data: { app: 'reentry' }, then: 'close' } },
-        { id: 'ksp',     icon: '\u2641', label: 'KSP', action: { type: 'action', action: 'action:switch-app', data: { app: 'ksp' }, then: 'close' } },
-        { id: 'bridge',  icon: '\u21C4', label: 'BRIDGE', action: { type: 'navigate', screen: 'bridgeSelect' } },
+        { id: 'yaagc',   icon: 'yaagc-svg',   label: 'yaAGC', action: { type: 'navigate', screen: 'yaAgcSelect' } },
+        { id: 'nassp',   icon: 'nassp-svg',   label: 'NASSP', action: { type: 'action', action: 'action:switch-app', data: { app: 'nassp' }, then: 'close' } },
+        { id: 'reentry', icon: 'reentry-svg', label: 'REENTRY', action: { type: 'action', action: 'action:switch-app', data: { app: 'reentry' }, then: 'close' } },
+        { id: 'ksp',     icon: 'ksp-svg',     label: 'KSP', action: { type: 'action', action: 'action:switch-app', data: { app: 'ksp' }, then: 'close' } },
+        { id: 'bridge',  icon: '\u21C4',      label: 'BRIDGE', action: { type: 'navigate', screen: 'bridgeSelect' } },
     ]
 }
 
@@ -162,7 +162,7 @@ function bridgeSelectScreenItems(serverState: ServerState): MenuItemDef[] {
             action: { type: 'action' as const, action: 'action:switch-app', data: { app: 'bridge', bridgeUrl: api.url }, then: 'close' as const },
         })),
         { id: 'rescan', icon: '\u21BB', label: 'RESCAN', action: { type: 'action', action: 'action:scan-bridges' } },
-        { id: 'manual', icon: '\u270E', label: 'MANUAL URL', action: { type: 'action', action: 'action:switch-app', data: { app: 'bridge', bridgeUrl: 'wss://' }, then: 'close' } },
+        { id: 'manual', icon: '\u270E', label: 'MANUAL URL', action: { type: 'navigate', screen: 'bridgeManual' } },
     ]
 }
 
@@ -227,6 +227,7 @@ export function getScreenItems(screen: MenuScreen, serverState: ServerState, _me
         case 'games':
         case 'haSetup':
         case 'wifi':
+        case 'bridgeManual':
         default:
             return []
     }

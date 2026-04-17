@@ -16,6 +16,7 @@ export type MenuScreen =
     | 'games'
     | 'yaAgcSelect'
     | 'bridgeSelect'
+    | 'bridgeManual'
     | 'serialSelect'
     | 'networkInterface'
     | 'haMenu'
