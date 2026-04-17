@@ -78,28 +78,33 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
 
     initWebSocket(wss)
 
-    // Initialize mDNS service
+    const resolvedPort =
+        typeof options.port === 'string'
+            ? parseInt(options.port, 10)
+            : (options.port ?? 3000)
+    const port = Number.isFinite(resolvedPort) ? resolvedPort : 3000
+
+    if (typeof options.interface === 'string' && options.interface.trim().length > 0) {
+        serverState.network.interface = options.interface.trim()
+    } else if (process.platform === 'win32') {
+        const best = pickBestInterface()
+        if (best) serverState.network.interface = best
+    }
+
+    const ip = serverState.network.interface || pickBestInterface() || 'localhost'
+    serverState.baseUrl = `http://${ip}:${port}`
+
+    // Initialize mDNS service (publishing only — baseUrl is always set above)
     if (process.env.DSKY_MDNS_DISABLED !== '1') {
         try {
             const serviceName = process.env.DSKY_NAME || undefined
-            const mdnsPort =
-                typeof options.port === 'string'
-                    ? parseInt(options.port, 10)
-                    : (options.port ?? 3000)
 
-            if (typeof options.interface === 'string' && options.interface.trim().length > 0) {
-                mdnsService.setRuntimeInterface(options.interface.trim())
-                serverState.network.interface = options.interface.trim()
-            } else if (process.platform === 'win32') {
-                const best = pickBestInterface()
-                if (best) {
-                    mdnsService.setRuntimeInterface(best)
-                    serverState.network.interface = best
-                }
+            if (serverState.network.interface) {
+                mdnsService.setRuntimeInterface(serverState.network.interface)
             }
 
             mdnsService.start({
-                port: Number.isFinite(mdnsPort) ? mdnsPort : 3000,
+                port,
                 name: serviceName,
                 version: '0.1.0'
             })
@@ -107,10 +112,6 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
             mdnsService.setOnDiscoveryUpdate((apis) => {
                 updateBridge({ discovered: apis, scanning: false })
             })
-
-            const ip = serverState.network.interface || pickBestInterface() || 'localhost'
-            const port = Number.isFinite(mdnsPort) ? mdnsPort : 3000
-            serverState.baseUrl = `http://${ip}:${port}`
         } catch (err) {
             console.error('[Server] mDNS initialization failed:', err)
         }
