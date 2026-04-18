@@ -65,11 +65,28 @@ export default function MenuCard({
                 {index}
             </span>
 
-            {/* Badge */}
-            {badge && (
+            {/* Label as top-right badge */}
+            {label && (
                 <span style={{
                     position: 'absolute',
                     top: '1cqh',
+                    right: '2cqw',
+                    fontSize: '2cqh',
+                    padding: '0.4cqh 1.5cqw',
+                    borderRadius: 2,
+                    background: 'rgba(74, 222, 128, 0.15)',
+                    color: 'var(--menu-primary)',
+                    fontWeight: 600,
+                }}>
+                    {label}
+                </span>
+            )}
+
+            {/* State badge (ACTIVE, RUNNING, etc.) — bottom-right */}
+            {badge && (
+                <span style={{
+                    position: 'absolute',
+                    bottom: '1cqh',
                     right: '2cqw',
                     fontSize: '2cqh',
                     padding: '0.4cqh 1.5cqw',
@@ -84,25 +101,12 @@ export default function MenuCard({
 
             {/* Icon */}
             <span style={{
-                fontSize: '7cqh',
+                fontSize: '14cqh',
                 color: 'var(--menu-primary)',
                 lineHeight: 1,
                 textShadow: selected ? '0 0 8px rgba(74, 222, 128, 0.5)' : 'none',
             }}>
                 {icon}
-            </span>
-
-            {/* Label */}
-            <span style={{
-                fontSize: '3.5cqh',
-                fontWeight: 600,
-                color: 'var(--menu-primary)',
-                letterSpacing: '0.4cqh',
-                textTransform: 'uppercase',
-                marginTop: '1cqh',
-                textShadow: selected ? '0 0 8px rgba(74, 222, 128, 0.5)' : 'none',
-            }}>
-                {label}
             </span>
 
             {/* Description */}
