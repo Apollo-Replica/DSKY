@@ -39,12 +39,12 @@ function mainScreenItems(serverState: ServerState): MenuItemDef[] {
         { id: 'simulate', icon: 'rocket-svg', label: 'SIMS', action: { type: 'navigate', screen: 'simulate' } },
     ]
     if (serverState.ha.enabled) {
-        items.push({ id: 'ha', icon: '\u25CE', label: 'HOME ASST', action: { type: 'navigate', screen: 'haMenu' } })
+        items.push({ id: 'ha', icon: 'ha-svg', label: 'HOME ASST', action: { type: 'navigate', screen: 'haMenu' } })
     }
     items.push(
-        { id: 'apps',     icon: '\u25A6', label: 'APPS', action: { type: 'navigate', screen: 'apps' } },
-        { id: 'commands', icon: '\u2630', label: 'COMMANDS', action: { type: 'navigate', screen: 'commands' } },
-        { id: 'settings', icon: '\u2699', label: 'SETTINGS', action: { type: 'navigate', screen: 'settings' } },
+        { id: 'apps',     icon: 'apps-svg', label: 'APPS', action: { type: 'navigate', screen: 'apps' } },
+        { id: 'commands', icon: 'commands-svg', label: 'COMMANDS', action: { type: 'navigate', screen: 'commands' } },
+        { id: 'settings', icon: 'settings-svg', label: 'SETTINGS', action: { type: 'navigate', screen: 'settings' } },
     )
     return items
 }
@@ -54,8 +54,8 @@ function haMenuScreenItems(serverState: ServerState): MenuItemDef[] {
     return [
         haActive
             ? { id: 'ha-quit', icon: '\u2298', label: 'QUIT', action: { type: 'action', action: 'action:enter-idle', then: 'close' } }
-            : { id: 'ha-enable', icon: '\u25CE', label: 'ENABLE', action: { type: 'action', action: 'action:switch-app', data: { app: 'homeassistant' }, then: 'close' } },
-        { id: 'ha-config', icon: '\u2699', label: 'CONFIGURE', action: { type: 'navigate', screen: 'haSetup' } },
+            : { id: 'ha-enable', icon: 'ha-svg', label: 'ENABLE', action: { type: 'action', action: 'action:switch-app', data: { app: 'homeassistant' }, then: 'close' } },
+        { id: 'ha-config', icon: 'settings-svg', label: 'CONFIGURE', action: { type: 'navigate', screen: 'haSetup' } },
     ]
 }
 
