@@ -110,7 +110,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
 
           {/* DSKY chassis image */}
           <img
-            src="./dsky.png"
+            src="./dsky/dsky.png"
             alt="DSKY unit"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
           />

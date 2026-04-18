@@ -92,8 +92,8 @@ const Alarms = ({ dskyState, opacity, area, mode = 'overlay' }: AlarmsProps) => 
                         opacity: active ? opacity : 1,
                     }} />
                 })}
-                <SvgLayer src={'./alarms_chassis.svg'} zIndex={2} />
-                <SvgLayer src={'./alarms_labels.svg'} zIndex={3} />
+                <SvgLayer src={'./dsky/alarms_chassis.svg'} zIndex={2} />
+                <SvgLayer src={'./dsky/alarms_labels.svg'} zIndex={3} />
             </div>
         )
     }
@@ -122,7 +122,7 @@ const Alarms = ({ dskyState, opacity, area, mode = 'overlay' }: AlarmsProps) => 
                 })}
             </div>
             <div style={{ ...baseStyle, ...rectStyle(lbl), zIndex: 3 }}>
-                <SvgLayer src={'./alarms_labels.svg'} />
+                <SvgLayer src={'./dsky/alarms_labels.svg'} />
             </div>
         </>
     )

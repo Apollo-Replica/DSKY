@@ -9,7 +9,7 @@ const ELDisplay = ({dskyState, opacity}: {dskyState:any, opacity:number}) => {
             <div className="ELDisplay" style={{ opacity }}>
                 <Image
                     alt={'basic_segments'}
-                    src={'./basic_segments.svg'}
+                    src={'./dsky/basic_segments.svg'}
                     width={1000}
                     height={1000}
                     className="basic_segments"
@@ -119,7 +119,7 @@ const ELDisplay = ({dskyState, opacity}: {dskyState:any, opacity:number}) => {
             <div className="ELDisplay">
                 <Image
                     alt={'mask'}
-                    src={'./mask.svg'}
+                    src={'./dsky/mask.svg'}
                     width={1000}
                     height={1000}
                     className="mask"
