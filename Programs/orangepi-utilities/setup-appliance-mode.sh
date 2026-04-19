@@ -12,9 +12,9 @@ set -e
 echo "=== DSKY Appliance Mode Setup ==="
 echo ""
 
-# 1. Install minimal window manager
-echo "[1/7] Installing openbox and feh..."
-sudo apt install -y openbox feh
+# 1. Install minimal window manager and helpers
+echo "[1/7] Installing openbox, feh, and unclutter..."
+sudo apt install -y openbox feh unclutter
 
 # 2. Silent kernel boot
 echo "[2/7] Configuring silent boot..."
@@ -70,8 +70,9 @@ EOF
     echo "  Created ~/.xsession"
 fi
 
-# 5. Remove old autostart entries (no longer needed)
-echo "[5/7] Removing old autostart entries..."
+# 5. Legacy cleanup: remove autostart entries from older DSKY installs.
+# Harmless on a fresh image — these files won't exist.
+echo "[5/7] Legacy cleanup (older DSKY installs only)..."
 for f in ~/.config/autostart/rotate-display.desktop ~/.config/autostart/dsky.desktop; do
     if [ -f "$f" ]; then
         rm -f "$f"
@@ -115,4 +116,5 @@ echo "  If the file is missing, the screen stays black until ready."
 echo ""
 echo "Reboot to test:  sudo reboot"
 echo ""
-echo "To revert, restore the old autostart entries and remove ~/.xsession."
+echo "To revert: remove ~/.xsession, /etc/lightdm/lightdm.conf.d/50-appliance.conf,"
+echo "  /usr/share/xsessions/dsky.desktop, and the getty override — then reboot."

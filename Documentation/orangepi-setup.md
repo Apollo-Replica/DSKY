@@ -48,7 +48,7 @@ sudo apt remove update-manager update-notifier -y
 ## Install dependencies
 
 ```bash
-sudo apt install -y git unclutter wmctrl xttitle x11vnc
+sudo apt install -y git wmctrl xttitle x11vnc
 ```
 
 ### VirtualAGC (optional)
