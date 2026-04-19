@@ -55,15 +55,20 @@ user-session=dsky
 EOF
 echo "  Created /etc/lightdm/lightdm.conf.d/50-appliance.conf"
 
-# 4. Create custom X session
+# 4. Create custom X session (preserves local customizations on re-run)
 echo "[4/7] Creating ~/.xsession..."
-cat > ~/.xsession << 'EOF'
+if [ -f ~/.xsession ]; then
+    echo "  ~/.xsession already exists, leaving it alone."
+else
+    cat > ~/.xsession << 'EOF'
 #!/bin/bash
+# Add env overrides here (e.g. DSKY_DISPLAY=lcd480, HA_URL=..., HA_TOKEN=...)
 openbox &
 ~/DSKY/orangepi.sh
 EOF
-chmod +x ~/.xsession
-echo "  Created ~/.xsession"
+    chmod +x ~/.xsession
+    echo "  Created ~/.xsession"
+fi
 
 # 5. Remove old autostart entries (no longer needed)
 echo "[5/7] Removing old autostart entries..."
