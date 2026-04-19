@@ -34,21 +34,10 @@ sudo swapon /swapfile
 echo '/swapfile swap swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-### Disable unnecessary services
-
-```bash
-# Disable automatic updates (they can interfere with the DSKY at startup)
-sudo systemctl disable --now apt-daily.timer
-sudo systemctl disable --now apt-daily-upgrade.timer
-
-# Disable update notifier
-sudo apt remove update-manager update-notifier -y
-```
-
 ## Install dependencies
 
 ```bash
-sudo apt install -y git wmctrl xttitle x11vnc
+sudo apt install -y git x11vnc
 ```
 
 ### VirtualAGC (optional)
@@ -83,11 +72,13 @@ sudo reboot
 
 What the script does:
 
-- Installs `openbox` and `feh` (minimal WM + splash loader).
+- Installs `openbox`, `feh`, and `unclutter` (minimal WM, splash loader, cursor hider).
+- Disables `apt-daily.timer` / `apt-daily-upgrade.timer` and removes `update-manager`/`update-notifier` so auto-updates don't fight the appliance.
 - Sets silent kernel boot args in `/boot/orangepiEnv.txt` (`quiet splash loglevel=0`, hides console cursor and blanking).
 - Registers a custom `dsky` X session and configures LightDM to auto-login the `orangepi` user into it.
 - Creates `~/.xsession`, which launches `openbox` and runs `~/DSKY/orangepi.sh`.
 - Silences the `getty@tty1` login banner.
+- Swaps the Plymouth boot watermark to the DSKY mission patch.
 
 After reboot: power on → splash image (or black screen) → DSKY UI.
 
@@ -103,11 +94,12 @@ The default transform is `0,-1,544,1,0,0,0,0,1`, where `544` is the height of th
 #!/bin/bash
 export DSKY_XRANDR_OUTPUT=HDMI-1                    # default: HDMI-1
 export DSKY_XRANDR_TRANSFORM=0,-1,544,1,0,0,0,0,1   # match your display height
+export DSKY_DISPLAY=amoled544                       # or lcd480 for the legacy 800×480 panel
 openbox &
 ~/DSKY/orangepi.sh
 ```
 
-> The legacy 800×480 LCD variant uses `480` in place of `544` in the transform. Also set `DSKY_DISPLAY=lcd480` in `Programs/next-dsky/.env` so the UI switches to the LCD chassis color and CSS class.
+> For the legacy 800×480 LCD: use `480` in place of `544` in the transform and set `DSKY_DISPLAY=lcd480`. Exporting `DSKY_DISPLAY` in `~/.xsession` is preferred over editing `Programs/next-dsky/.env` — `.xsession` env vars propagate through `orangepi.sh` into `next-dsky` at runtime.
 
 ## VNC access (optional)
 

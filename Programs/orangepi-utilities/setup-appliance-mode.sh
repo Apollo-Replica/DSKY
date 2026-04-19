@@ -12,9 +12,13 @@ set -e
 echo "=== DSKY Appliance Mode Setup ==="
 echo ""
 
-# 1. Install minimal window manager and helpers
-echo "[1/7] Installing openbox, feh, and unclutter..."
+# 1. Install packages and disable auto-update services that fight the appliance
+echo "[1/7] Installing packages and disabling appliance-hostile services..."
 sudo apt install -y openbox feh unclutter
+# Auto-updates can spin up mid-boot and interfere with the DSKY startup.
+sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+# Update notifiers are desktop-oriented and unnecessary in appliance mode.
+sudo apt remove -y update-manager update-notifier 2>/dev/null || true
 
 # 2. Silent kernel boot
 echo "[2/7] Configuring silent boot..."
