@@ -204,6 +204,19 @@ function networkInterfaceScreenItems(serverState: ServerState): MenuItemDef[] {
     ]
 }
 
+// --- Screen layout ---
+
+// Screens with long labels render better as a single column.
+const SCREEN_COLUMNS: Partial<Record<MenuScreen, 1 | 2>> = {
+    yaAgcSelect: 1,
+    serialSelect: 1,
+    networkInterface: 1,
+}
+
+export function getScreenColumns(screen: MenuScreen): 1 | 2 | undefined {
+    return SCREEN_COLUMNS[screen]
+}
+
 // --- Public API ---
 
 /**

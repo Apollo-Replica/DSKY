@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import type { ServerState, MenuScreen } from "../../types/serverState"
 import type { DskyClient } from "../../types/dsky"
-import { getScreenItems } from "../../menu/menuModel"
+import { getScreenItems, getScreenColumns } from "../../menu/menuModel"
 import MenuCard from "./menuCard"
 import MenuGrid from "./menuGrid"
 import CommandsScreen from "./screens/commandsScreen"
@@ -166,7 +166,7 @@ export default function MenuOverlay({
         // Card-grid screens: render from menuModel
         if (CARD_GRID_SCREENS.has(activeScreen)) {
             const items = getScreenItems(activeScreen, serverState, menuState)
-            const columns = (activeScreen === 'networkInterface' || activeScreen === 'serialSelect') ? 1 : undefined
+            const columns = getScreenColumns(activeScreen)
 
             return (
                 <>
