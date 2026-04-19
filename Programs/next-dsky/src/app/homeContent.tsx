@@ -17,14 +17,29 @@ import ViewToggle from "./viewToggle";
 /** Aspect ratio of the DSKY chassis image */
 const DSKY_AR = 484 / 558
 
-export default function HomeContent({ envOled, envDisplay }: { envOled: boolean, envDisplay: string }) {
-  const searchParams = useSearchParams()
-  let oledMode = envOled ? 'yes' : 'no'
-  if(searchParams.get('oled') === '0') oledMode = 'no'
-  else if(searchParams.get('oled') === '1') oledMode = 'yes'
+export type DisplayVariant = 'amoled544' | 'lcd480'
 
-  let displayType = envDisplay
-  if(searchParams.get('display')) displayType = searchParams.get('display') as string
+export default function HomeContent({ envDisplay }: { envDisplay: DisplayVariant }) {
+  const searchParams = useSearchParams()
+
+  // Display variant: ?display=lcd480 or ?display=amoled544 overrides the env default
+  const displayParam = searchParams.get('display')
+  const initialDisplay: DisplayVariant =
+    displayParam === 'lcd480' || displayParam === 'amoled544' ? displayParam : envDisplay
+  const [displayVariant, setDisplayVariant] = useState<DisplayVariant>(initialDisplay)
+  const displayVariantRef = useRef(displayVariant)
+  displayVariantRef.current = displayVariant
+  const toggleDisplayVariant = useCallback(() => {
+    const next: DisplayVariant = displayVariantRef.current === 'amoled544' ? 'lcd480' : 'amoled544'
+    setDisplayVariant(next)
+    const params = new URLSearchParams(window.location.search)
+    if (next === envDisplay) params.delete('display')
+    else params.set('display', next)
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }, [envDisplay])
+
+  const oledMode = displayVariant === 'amoled544'
 
   // View mode: query param ?view=screen overrides default 'full'
   const viewParam = searchParams.get('view')
@@ -115,7 +130,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', zIndex: 2, pointerEvents: 'none' }}
           />
 
-          <DskyDisplayWrapper mode="overlay" displayType={displayType} containerRatio={containerRatio}>
+          <DskyDisplayWrapper mode="overlay" displayType={displayVariant} containerRatio={containerRatio}>
             {!serverState?.menu?.isOpen && renderDisplayContent()}
             <MenuOverlay
               serverState={serverState}
@@ -129,7 +144,11 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
           <DskyKeyboard sendKey={sendKey} />
         </div>
         <ClientList clients={dskyState?.clients || []} />
-        <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} muted={muted} onToggleMuted={toggleMuted} />
+        <ViewToggle
+          viewMode={viewMode} onToggle={toggleViewMode}
+          muted={muted} onToggleMuted={toggleMuted}
+          displayVariant={displayVariant} onToggleDisplay={toggleDisplayVariant}
+        />
       </main>
     )
   }
@@ -141,7 +160,7 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: oledMode === 'yes' ? '#000' : '#3f3b30',
+      backgroundColor: oledMode ? '#000' : '#3f3b30',
     }}>
       <div className="screen-mode-layout">
         <div className="screen-mode-alarms">
@@ -161,7 +180,11 @@ export default function HomeContent({ envOled, envDisplay }: { envOled: boolean,
         </div>
       </div>
       <ClientList clients={dskyState?.clients || []} />
-      <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} muted={muted} onToggleMuted={toggleMuted} />
+      <ViewToggle
+        viewMode={viewMode} onToggle={toggleViewMode}
+        muted={muted} onToggleMuted={toggleMuted}
+        displayVariant={displayVariant} onToggleDisplay={toggleDisplayVariant}
+      />
     </main>
   );
 }

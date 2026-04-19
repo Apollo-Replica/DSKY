@@ -1,12 +1,17 @@
+import type { DisplayVariant } from "./homeContent"
+
 export default function ViewToggle({
-  viewMode, onToggle, muted, onToggleMuted,
+  viewMode, onToggle, muted, onToggleMuted, displayVariant, onToggleDisplay,
 }: {
   viewMode: 'full' | 'screen'
   onToggle: () => void
   muted: boolean
   onToggleMuted: () => void
+  displayVariant: DisplayVariant
+  onToggleDisplay: () => void
 }) {
   const isFull = viewMode === 'full'
+  const isAmoled = displayVariant === 'amoled544'
   return (
     <div className="view-toggle">
       <div className="toggle-panel toggle-panel-wide">
@@ -39,6 +44,19 @@ export default function ViewToggle({
               </div>
             </div>
             <div className={`toggle-label ${muted ? 'toggle-label-active' : ''}`}>MUTE</div>
+          </div>
+
+          <div className="toggle-divider" />
+
+          {/* Display variant toggle */}
+          <div className="toggle-group" onClick={onToggleDisplay} title={isAmoled ? 'Switch to 800x480 LCD' : 'Switch to 960x544 AMOLED'}>
+            <div className={`toggle-label ${isAmoled ? 'toggle-label-active' : ''}`}>AMOLED</div>
+            <div className="toggle-housing">
+              <div className={`toggle-lever ${isAmoled ? 'toggle-up' : 'toggle-down'}`}>
+                <div className="toggle-knob" />
+              </div>
+            </div>
+            <div className={`toggle-label ${!isAmoled ? 'toggle-label-active' : ''}`}>LCD</div>
           </div>
         </div>
       </div>
