@@ -71,55 +71,43 @@ npm install
 npm run build
 ```
 
+## Configure appliance-mode boot
+
+Appliance mode boots the Orange Pi straight to the DSKY UI — no desktop, no login prompt, no visible Linux. A helper script does all the setup:
+
+```bash
+cd ~/DSKY
+bash Programs/orangepi-utilities/setup-appliance-mode.sh
+sudo reboot
+```
+
+What the script does:
+
+- Installs `openbox` and `feh` (minimal WM + splash loader).
+- Sets silent kernel boot args in `/boot/orangepiEnv.txt` (`quiet splash loglevel=0`, hides console cursor and blanking).
+- Registers a custom `dsky` X session and configures LightDM to auto-login the `orangepi` user into it.
+- Creates `~/.xsession`, which launches `openbox` and runs `~/DSKY/orangepi.sh`.
+- Silences the `getty@tty1` login banner.
+
+After reboot: power on → splash image (or black screen) → DSKY UI.
+
+The splash image lives at `~/DSKY/Programs/orangepi-utilities/splash.png`. Use portrait orientation matching your display (e.g. 544×960). If the file is missing the screen stays black until the UI is ready.
+
 ## Display rotation
 
-The DSKY display is mounted in portrait orientation, so the HDMI output needs to be rotated. This is done via an xrandr transform at login.
+The DSKY display is mounted in portrait orientation, so the HDMI output needs to be rotated 90° counterclockwise. `orangepi.sh` applies an xrandr transform automatically at startup.
 
-Create the autostart entry:
-
-```bash
-mkdir -p ~/.config/autostart
-
-cat > ~/.config/autostart/rotate-display.desktop << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=Rotate Display
-Exec=/bin/bash -c "sleep 2 && xrandr --output HDMI-1 --transform 0,-1,544,1,0,0,0,0,1"
-X-GNOME-Autostart-enabled=true
-EOF
-```
-
-> The transform matrix `0,-1,544,1,0,0,0,0,1` rotates the display 90 degrees counterclockwise. The `544` value corresponds to the height of the 960x544 display. Adjust if using the 800x480 LCD (use `480` instead).
-
-## Auto-start the DSKY on boot
-
-Create a launcher script:
+The default transform is `0,-1,544,1,0,0,0,0,1`, where `544` is the height of the recommended 960×544 AMOLED display. Override via environment variables in `~/.xsession` (created by the appliance-mode script) only if your display differs:
 
 ```bash
-cat > ~/dsky.sh << 'EOF'
 #!/bin/bash
+export DSKY_XRANDR_OUTPUT=HDMI-1                    # default: HDMI-1
+export DSKY_XRANDR_TRANSFORM=0,-1,544,1,0,0,0,0,1   # match your display height
+openbox &
 ~/DSKY/orangepi.sh
-EOF
-chmod +x ~/dsky.sh
 ```
 
-Create the autostart entry:
-
-```bash
-cat > ~/.config/autostart/dsky.desktop << 'EOF'
-[Desktop Entry]
-Name=DSKY
-GenericName=Starts DSKY environment
-Comment=Should run on boot
-Exec=x-terminal-emulator -e "/home/orangepi/dsky.sh"
-Icon=accessories-calculator
-Terminal=false
-Type=Application
-X-GNOME-Autostart-enabled=true
-EOF
-```
-
-This will start `next-dsky` and open Chromium in fullscreen pointing to `http://localhost:3000` on every login.
+> The legacy 800×480 LCD variant uses `480` in place of `544` in the transform.
 
 ## VNC access (optional)
 
@@ -177,6 +165,7 @@ The `orangepi.sh` launcher script already passes `--wifi-connect` to `next-dsky`
 ## Notes
 
 - The Orange Pi connects to the PCB via USB serial (`/dev/ttyUSB0`).
-- The `orangepi.sh` script handles starting `next-dsky` with the correct serial port, opening Chromium, and restarting on crash.
-- `unclutter` is used to hide the mouse cursor after 3 seconds of inactivity.
+- The `orangepi.sh` script handles display rotation, splash, starting `next-dsky` with the correct serial port, opening Chromium fullscreen, and restarting on crash.
+- `unclutter` is launched by `orangepi.sh` to hide the mouse cursor immediately.
 - The fstab uses `noatime,commit=600` to reduce SD card writes.
+- To revert appliance mode: remove `~/.xsession`, `/etc/lightdm/lightdm.conf.d/50-appliance.conf`, `/usr/share/xsessions/dsky.desktop`, and `/etc/systemd/system/getty@tty1.service.d/override.conf`, then reboot.

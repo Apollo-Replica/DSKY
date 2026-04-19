@@ -4,6 +4,14 @@
 # - Starts `next-dsky` (server + UI) and opens Chromium fullscreen
 # - In appliance mode (default): sets up display, black screen until ready
 # - Cron mode: re-opens Chromium if it crashed
+#
+# Display overrides (env vars, set in ~/.xsession before calling this script):
+#   DSKY_XRANDR_OUTPUT     xrandr output name        (default: HDMI-1)
+#   DSKY_XRANDR_TRANSFORM  xrandr --transform matrix (default: 0,-1,544,1,0,0,0,0,1)
+#                          For the 800x480 LCD use:  0,-1,480,1,0,0,0,0,1
+
+XRANDR_OUTPUT="${DSKY_XRANDR_OUTPUT:-HDMI-1}"
+XRANDR_TRANSFORM="${DSKY_XRANDR_TRANSFORM:-0,-1,544,1,0,0,0,0,1}"
 
 if [ "$1" = "cron" ]; then
     killall chromium-browser chromium &>/dev/null
@@ -18,7 +26,7 @@ else
     # Black screen immediately, then rotate, then show splash
     xsetroot -solid black
     sleep 2
-    xrandr --output HDMI-1 --transform 0,-1,544,1,0,0,0,0,1
+    xrandr --output "$XRANDR_OUTPUT" --transform "$XRANDR_TRANSFORM"
 
     # Now set the splash (after rotation so it uses the correct resolution)
     SPLASH=~/DSKY/Programs/orangepi-utilities/splash.png

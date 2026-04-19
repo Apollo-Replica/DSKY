@@ -15,11 +15,8 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
 
 **Do you want to build the whole DSKY replica?**
   - Print the .3mf/.stl meshes found in the '3D Models' folder.
-    - You will need to choose a display variant to print:
-    - Currently supported displays are:
-      - **960x544 AMOLED MIPI display (recommended)** — using an HDMI adapter board
-      - 40-Pin 5" 800x480 LCD display — using an HDMI driver board
-    - Both displays connect to the Orange Pi via HDMI through their respective adapter boards.
+    - The recommended display is the **960x544 AMOLED MIPI display**, connected to the Orange Pi via HDMI through an adapter board.
+    - A legacy 40-Pin 5" 800x480 LCD variant also exists but is no longer recommended; new builds should use the AMOLED.
   - Order the PCB:
     - The board is designed to be ordered fully assembled from JLCPCB. The fabrication files (gerbers, BOM, pick-and-place positions) are in the ``Boards/Single_board/production`` folder.
   - Calibrate and flash the firmware:
