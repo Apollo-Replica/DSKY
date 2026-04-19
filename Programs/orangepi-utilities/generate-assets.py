@@ -5,7 +5,11 @@ Outputs:
   - splash.png              : metadata stripped, same pixels
   - patch.png               : transparent circular patch only
   - next-dsky favicon.ico   : multi-size favicon from transparent patch
-  - boot.bmp                : 960x544 8-bit BMP for u-boot bootlogo
+  - watermark.png           : Plymouth theme watermark — the actual boot
+                              logo shown on Orange Pi. Pre-rotated 90° CCW
+                              to appear upright on the physically-portrait
+                              panel (Plymouth draws at native landscape
+                              before X rotates).
 """
 
 from pathlib import Path
@@ -16,11 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 UTIL = ROOT / "Programs" / "orangepi-utilities"
 SPLASH = UTIL / "splash.png"
 PATCH = UTIL / "patch.png"
-BOOT_BMP = UTIL / "boot.bmp"
+WATERMARK = UTIL / "watermark.png"
 FAVICON = ROOT / "Programs" / "next-dsky" / "src" / "app" / "favicon.ico"
-
-# u-boot framebuffer size (native landscape panel resolution, pre-rotation)
-BMP_W, BMP_H = 960, 544
 
 # -- 1. Load once, strip metadata, re-save splash --
 src = Image.open(SPLASH)
@@ -68,19 +69,13 @@ ico_sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 sq.save(FAVICON, format="ICO", sizes=ico_sizes)
 print(f"[3/4] wrote {FAVICON.relative_to(ROOT)}  (sizes: {ico_sizes})")
 
-# -- 4. u-boot BMP (960x544, 8-bit indexed, BMP3) --
-# The panel is physically mounted portrait, but u-boot draws in native
-# landscape (xrandr rotates only once X starts). Rotate the patch 90° CCW
-# so it appears upright to the viewer during boot.
-canvas = Image.new("RGB", (BMP_W, BMP_H), (0, 0, 0))
-patch_rot = patch.rotate(90, expand=True, resample=Image.BICUBIC)
-target = int(min(BMP_W, BMP_H) * 0.9)
-scale = target / max(patch_rot.size)
-nw, nh = int(round(patch_rot.size[0] * scale)), int(round(patch_rot.size[1] * scale))
-patch_scaled = patch_rot.resize((nw, nh), Image.LANCZOS)
-canvas.paste(patch_scaled, ((BMP_W - nw) // 2, (BMP_H - nh) // 2), patch_scaled)
-indexed = canvas.convert("P", palette=Image.ADAPTIVE, colors=256)
-indexed.save(BOOT_BMP, format="BMP")
-print(f"[4/4] wrote {BOOT_BMP.relative_to(ROOT)}  ({BMP_W}x{BMP_H}, 8-bit indexed)")
+# -- 4. Plymouth watermark (transparent PNG, pre-rotated 90° CCW) --
+# Sized to fit comfortably within the 544px short side of the framebuffer.
+WM_SIZE = 480
+wm = patch.rotate(90, expand=True, resample=Image.BICUBIC).resize(
+    (WM_SIZE, WM_SIZE), Image.LANCZOS
+)
+wm.save(WATERMARK, format="PNG", optimize=True, pnginfo=PngImagePlugin.PngInfo())
+print(f"[4/4] wrote {WATERMARK.relative_to(ROOT)}  ({WM_SIZE}x{WM_SIZE}, rotated 90° CCW)")
 
 print("Done.")

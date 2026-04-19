@@ -13,11 +13,11 @@ echo "=== DSKY Appliance Mode Setup ==="
 echo ""
 
 # 1. Install minimal window manager
-echo "[1/6] Installing openbox and feh..."
+echo "[1/7] Installing openbox and feh..."
 sudo apt install -y openbox feh
 
 # 2. Silent kernel boot
-echo "[2/6] Configuring silent boot..."
+echo "[2/7] Configuring silent boot..."
 BOOT_ENV="/boot/orangepiEnv.txt"
 BOOT_ARGS="quiet splash loglevel=0 logo.nologo vt.global_cursor_default=0 consoleblank=0"
 if [ -f "$BOOT_ENV" ]; then
@@ -37,7 +37,7 @@ else
 fi
 
 # 3. Create custom X session and register it with LightDM
-echo "[3/6] Configuring LightDM auto-login..."
+echo "[3/7] Configuring LightDM auto-login..."
 sudo tee /usr/share/xsessions/dsky.desktop > /dev/null << 'EOF'
 [Desktop Entry]
 Name=DSKY
@@ -56,7 +56,7 @@ EOF
 echo "  Created /etc/lightdm/lightdm.conf.d/50-appliance.conf"
 
 # 4. Create custom X session
-echo "[4/6] Creating ~/.xsession..."
+echo "[4/7] Creating ~/.xsession..."
 cat > ~/.xsession << 'EOF'
 #!/bin/bash
 openbox &
@@ -66,12 +66,12 @@ chmod +x ~/.xsession
 echo "  Created ~/.xsession"
 
 # 5. Remove old autostart entries (no longer needed)
-echo "[5/6] Removing old autostart entries..."
+echo "[5/7] Removing old autostart entries..."
 rm -f ~/.config/autostart/rotate-display.desktop && echo "  Removed rotate-display.desktop" || true
 rm -f ~/.config/autostart/dsky.desktop && echo "  Removed dsky.desktop" || true
 
 # 6. Configure silent getty (hide login text on tty1)
-echo "[6/6] Configuring silent login prompt..."
+echo "[6/7] Configuring silent login prompt..."
 sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
 sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf > /dev/null << 'EOF'
 [Service]
@@ -81,11 +81,24 @@ EOF
 sudo systemctl daemon-reload
 echo "  Configured silent getty on tty1."
 
+# 7. Install DSKY Plymouth watermark (replaces the Orange Pi logo on boot)
+echo "[7/7] Installing DSKY boot logo..."
+WATERMARK_SRC="$(dirname "$(readlink -f "$0")")/watermark.png"
+WATERMARK_DST="/usr/share/plymouth/themes/orangepi/watermark.png"
+if [ -f "$WATERMARK_SRC" ] && [ -d "$(dirname "$WATERMARK_DST")" ]; then
+    [ -f "$WATERMARK_DST.orig" ] || sudo cp "$WATERMARK_DST" "$WATERMARK_DST.orig"
+    sudo cp "$WATERMARK_SRC" "$WATERMARK_DST"
+    sudo update-initramfs -u >/dev/null
+    echo "  Installed $WATERMARK_SRC -> $WATERMARK_DST and rebuilt initramfs."
+else
+    echo "  SKIPPED: watermark.png or orangepi Plymouth theme not found."
+fi
+
 echo ""
 echo "=== Done! ==="
 echo ""
 echo "Boot sequence will now be:"
-echo "  Power on -> splash image (or black screen) -> DSKY UI"
+echo "  Power on -> DSKY boot logo (Plymouth) -> splash image -> DSKY UI"
 echo ""
 echo "To customize the splash image, replace ~/DSKY/Programs/orangepi-utilities/splash.png"
 echo "  (use portrait orientation matching your display, e.g. 544x960)"
