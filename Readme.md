@@ -1,5 +1,5 @@
 # DSKY Replica
-> This project is still a work-in-progress
+> This project is still a work-in-progress 
 
 This projects aims to create an affordable and easy to manufacture, yet as realistic as possible replica of the DSKY used in the Apollo program to interface with the Apollo Guidance Computer (AGC).
 
