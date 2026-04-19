@@ -4,11 +4,13 @@ import type { ServerState } from "../../types/serverState"
 import FlappyGame from "./games/flappyGame"
 import TetrisGame from "./games/tetrisGame"
 import SnakeGame from "./games/snakeGame"
+import Game2048 from "./games/game2048"
 
 const GAME_LIST = [
     { id: 'flappy', label: 'FLAPPY ROCKET', icon: '\u25B6' },
     { id: 'tetris', label: 'TETRIS', icon: '\u25A6' },
     { id: 'snake', label: 'SNAKE', icon: '\u2B82' },
+    { id: 'game2048', label: '2048', icon: '\u25A3' },
 ]
 
 interface GamesAppProps {
@@ -27,6 +29,9 @@ export default function GamesApp({ serverState }: GamesAppProps) {
     }
     if (games.activeGame === 'snake') {
         return <SnakeGame state={games.snake} />
+    }
+    if (games.activeGame === 'game2048') {
+        return <Game2048 state={games.game2048} />
     }
 
     // Selector screen

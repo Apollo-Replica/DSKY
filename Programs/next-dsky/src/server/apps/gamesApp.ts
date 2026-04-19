@@ -7,11 +7,13 @@ import type { GamesAppState, GameId } from '../../types/serverState'
 import { INITIAL_FLAPPY, handleFlappyKey, tickFlappy, resetFlappy } from './games/flappy'
 import { INITIAL_TETRIS, handleTetrisKey, tickTetris, resetTetris } from './games/tetris'
 import { INITIAL_SNAKE, handleSnakeKey, tickSnake, resetSnake } from './games/snake'
+import { INITIAL_2048, handle2048Key, reset2048 } from './games/game2048'
 
 const GAME_LIST: { id: GameId; label: string }[] = [
     { id: 'flappy', label: 'FLAPPY ROCKET' },
     { id: 'tetris', label: 'TETRIS' },
     { id: 'snake', label: 'SNAKE' },
+    { id: 'game2048', label: '2048' },
 ]
 
 const TICK_MS = 33  // ~30 Hz server authority; client interpolates at RAF
@@ -30,6 +32,7 @@ export function initGames(onChange: (s: GamesAppState) => void): GamesAppState {
         flappy: { ...INITIAL_FLAPPY, tickMs: Date.now() },
         tetris: { ...INITIAL_TETRIS, tickMs: Date.now() },
         snake: { ...INITIAL_SNAKE, tickMs: Date.now() },
+        game2048: { ...INITIAL_2048 },
     }
     return state
 }
@@ -73,6 +76,7 @@ function startTicker() {
             state = { ...state, snake: next }
             if (next.phase === 'gameover') stopTicker()
         } else {
+            // 2048 is purely input-driven — no tick.
             stopTicker()
             return
         }
@@ -110,6 +114,8 @@ export function handleGamesKey(key: string): GamesAppState {
                 state = { ...state, activeGame: 'tetris', tetris: resetTetris(state.tetris.best) }
             } else if (selected.id === 'snake') {
                 state = { ...state, activeGame: 'snake', snake: resetSnake(state.snake.best) }
+            } else if (selected.id === 'game2048') {
+                state = { ...state, activeGame: 'game2048', game2048: reset2048(state.game2048.best) }
             }
             broadcast()
             return state
@@ -164,6 +170,17 @@ export function handleGamesKey(key: string): GamesAppState {
         state = { ...state, snake: nextSnake }
         if (nextSnake.phase === 'playing') startTicker()
         else stopTicker()
+        broadcast()
+        return state
+    }
+
+    if (state.activeGame === 'game2048') {
+        if (key === 'r') {
+            state = { ...state, activeGame: null, game2048: { ...INITIAL_2048, best: state.game2048.best } }
+            broadcast()
+            return state
+        }
+        state = { ...state, game2048: handle2048Key(state.game2048, key) }
         broadcast()
         return state
     }

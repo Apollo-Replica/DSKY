@@ -115,7 +115,7 @@ export interface ClockAppState {
 
 // --- Games ---
 
-export type GameId = 'flappy' | 'tetris' | 'snake'
+export type GameId = 'flappy' | 'tetris' | 'snake' | 'game2048'
 
 export interface FlappyObstacle {
     x: number       // 0..1 normalized
@@ -179,12 +179,34 @@ export interface SnakeState {
     tickMs: number
 }
 
+export interface Game2048Tile {
+    id: number
+    value: number           // always a power of 2
+    x: number               // current column 0..3
+    y: number               // current row 0..3
+    prevX: number           // column before the last move (equals x on spawn)
+    prevY: number           // row before the last move
+    merged: boolean         // this tile is the result of a merge on the last move
+    spawned: boolean        // this tile appeared on the last move (spawn or merge)
+}
+
+export interface Game2048State {
+    phase: 'ready' | 'playing' | 'gameover' | 'won'
+    tiles: Game2048Tile[]
+    score: number
+    best: number
+    bestTile: number
+    wonAcknowledged: boolean        // user pressed ENTR after reaching 2048 to keep playing
+    nextId: number                  // internal counter for tile ids; broadcast so the module stays pure
+}
+
 export interface GamesAppState {
     activeGame: GameId | null
     selectorIndex: number
     flappy: FlappyState
     tetris: TetrisState
     snake: SnakeState
+    game2048: Game2048State
 }
 
 // --- Server State ---
