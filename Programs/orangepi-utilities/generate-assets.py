@@ -73,7 +73,7 @@ print(f"[3/4] wrote {FAVICON.relative_to(ROOT)}  (sizes: {ico_sizes})")
 # The orangepi Plymouth theme centers the watermark and draws the progress
 # throbber at y = 0.8 * screen_height. On a 544-tall framebuffer that's
 # y ≈ 435, so a centered watermark must be under ~260px tall to clear it.
-WM_SIZE = 260
+WM_SIZE = 220
 wm = patch.rotate(90, expand=True, resample=Image.BICUBIC).resize(
     (WM_SIZE, WM_SIZE), Image.LANCZOS
 )
