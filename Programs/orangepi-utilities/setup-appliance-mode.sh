@@ -67,8 +67,12 @@ echo "  Created ~/.xsession"
 
 # 5. Remove old autostart entries (no longer needed)
 echo "[5/7] Removing old autostart entries..."
-rm -f ~/.config/autostart/rotate-display.desktop && echo "  Removed rotate-display.desktop" || true
-rm -f ~/.config/autostart/dsky.desktop && echo "  Removed dsky.desktop" || true
+for f in ~/.config/autostart/rotate-display.desktop ~/.config/autostart/dsky.desktop; do
+    if [ -f "$f" ]; then
+        rm -f "$f"
+        echo "  Removed $(basename "$f")"
+    fi
+done
 
 # 6. Configure silent getty (hide login text on tty1)
 echo "[6/7] Configuring silent login prompt..."
