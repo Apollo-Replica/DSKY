@@ -5,12 +5,14 @@ import FlappyGame from "./games/flappyGame"
 import TetrisGame from "./games/tetrisGame"
 import SnakeGame from "./games/snakeGame"
 import Game2048 from "./games/game2048"
+import MinesweeperGame from "./games/minesweeperGame"
 
 const GAME_LIST = [
     { id: 'flappy', label: 'FLAPPY ROCKET', icon: '\u25B6' },
     { id: 'tetris', label: 'TETRIS', icon: '\u25A6' },
     { id: 'snake', label: 'SNAKE', icon: '\u2B82' },
     { id: 'game2048', label: '2048', icon: '\u25A3' },
+    { id: 'minesweeper', label: 'MINESWEEPER', icon: '\u2690' },
 ]
 
 interface GamesAppProps {
@@ -32,6 +34,9 @@ export default function GamesApp({ serverState }: GamesAppProps) {
     }
     if (games.activeGame === 'game2048') {
         return <Game2048 state={games.game2048} />
+    }
+    if (games.activeGame === 'minesweeper') {
+        return <MinesweeperGame state={games.minesweeper} />
     }
 
     // Selector screen
@@ -59,7 +64,7 @@ export default function GamesApp({ serverState }: GamesAppProps) {
             }}>
                 GAMES
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5cqh', justifyContent: 'center' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.1cqh', justifyContent: 'center', overflowY: 'auto' }}>
                 {GAME_LIST.map((g, i) => {
                     const selected = i === games.selectorIndex
                     return (
@@ -68,16 +73,17 @@ export default function GamesApp({ serverState }: GamesAppProps) {
                             style={{
                                 border: `1px solid ${selected ? primary : secondary}`,
                                 background: selected ? 'rgba(94,240,138,0.12)' : 'transparent',
-                                padding: '2.5cqh 3cqw',
-                                fontSize: '4cqh',
+                                padding: '1.8cqh 3cqw',
+                                fontSize: '3.4cqh',
                                 fontWeight: selected ? 700 : 500,
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '2cqw',
                                 color: selected ? primary : secondary,
+                                flexShrink: 0,
                             }}
                         >
-                            <span style={{ fontSize: '3.5cqh' }}>{g.icon}</span>
+                            <span style={{ fontSize: '3.2cqh' }}>{g.icon}</span>
                             <span>{g.label}</span>
                         </div>
                     )

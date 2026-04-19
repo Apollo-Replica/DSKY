@@ -115,7 +115,7 @@ export interface ClockAppState {
 
 // --- Games ---
 
-export type GameId = 'flappy' | 'tetris' | 'snake' | 'game2048'
+export type GameId = 'flappy' | 'tetris' | 'snake' | 'game2048' | 'minesweeper'
 
 export interface FlappyObstacle {
     x: number       // 0..1 normalized
@@ -200,6 +200,28 @@ export interface Game2048State {
     nextId: number                  // internal counter for tile ids; broadcast so the module stays pure
 }
 
+export type MinesweeperCellState = 'hidden' | 'revealed' | 'flagged'
+
+export interface MinesweeperCell {
+    mine: boolean
+    adjacent: number                // 0..8; valid only when mine === false
+    state: MinesweeperCellState
+}
+
+export interface MinesweeperState {
+    phase: 'ready' | 'playing' | 'won' | 'gameover'
+    board: MinesweeperCell[][]      // 9×9
+    cursor: { x: number; y: number }
+    cols: number
+    rows: number
+    mines: number
+    flagsRemaining: number          // mines count minus flags placed
+    revealedCount: number
+    firstMoveDone: boolean          // first reveal must not hit a mine
+    bestTimeSec: number | null      // shortest win time this session
+    startedAtMs: number             // for elapsed display
+}
+
 export interface GamesAppState {
     activeGame: GameId | null
     selectorIndex: number
@@ -207,6 +229,7 @@ export interface GamesAppState {
     tetris: TetrisState
     snake: SnakeState
     game2048: Game2048State
+    minesweeper: MinesweeperState
 }
 
 // --- Server State ---
