@@ -91,6 +91,11 @@ body {
   aspect-ratio: 1902 / 3206;
 }
 
+/* Legacy 800x480 LCD: nudge the screen-mode wrapper to align with the panel */
+.screen-mode-display.display-lcd480 {
+  transform: translate(-10px, -7px);
+}
+
 /* Screen mode display area — matches ELDisplay natural size */
 .screen-mode-display {
   position: relative;

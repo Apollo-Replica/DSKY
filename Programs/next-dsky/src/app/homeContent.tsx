@@ -166,7 +166,7 @@ export default function HomeContent({ envDisplay }: { envDisplay: DisplayVariant
         <div className="screen-mode-alarms">
           <Alarms dskyState={dskyState} opacity={opacityStatus} mode="screen" />
         </div>
-        <div className="screen-mode-display">
+        <div className={`screen-mode-display display-${displayVariant}`}>
           <DskyDisplayWrapper mode="screen">
             {!serverState?.menu?.isOpen && renderDisplayContent()}
             <MenuOverlay
