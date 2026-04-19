@@ -107,7 +107,7 @@ openbox &
 ~/DSKY/orangepi.sh
 ```
 
-> The legacy 800×480 LCD variant needs a different matrix with a slight zoom and offset to fill the panel cleanly: `0,-1,510,1,0,7,0,0,1.1`. Set `DSKY_DISPLAY=lcd480` in `Programs/next-dsky/.env` alongside it so the UI switches to the LCD chassis color and CSS class.
+> The legacy 800×480 LCD variant uses `480` in place of `544` in the transform. Also set `DSKY_DISPLAY=lcd480` in `Programs/next-dsky/.env` so the UI switches to the LCD chassis color and CSS class.
 
 ## VNC access (optional)
 
