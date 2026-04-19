@@ -6,10 +6,12 @@
 import type { GamesAppState, GameId } from '../../types/serverState'
 import { INITIAL_FLAPPY, handleFlappyKey, tickFlappy, resetFlappy } from './games/flappy'
 import { INITIAL_TETRIS, handleTetrisKey, tickTetris, resetTetris } from './games/tetris'
+import { INITIAL_SNAKE, handleSnakeKey, tickSnake, resetSnake } from './games/snake'
 
 const GAME_LIST: { id: GameId; label: string }[] = [
     { id: 'flappy', label: 'FLAPPY ROCKET' },
     { id: 'tetris', label: 'TETRIS' },
+    { id: 'snake', label: 'SNAKE' },
 ]
 
 const TICK_MS = 33  // ~30 Hz server authority; client interpolates at RAF
@@ -27,6 +29,7 @@ export function initGames(onChange: (s: GamesAppState) => void): GamesAppState {
         selectorIndex: 0,
         flappy: { ...INITIAL_FLAPPY, tickMs: Date.now() },
         tetris: { ...INITIAL_TETRIS, tickMs: Date.now() },
+        snake: { ...INITIAL_SNAKE, tickMs: Date.now() },
     }
     return state
 }
@@ -65,6 +68,10 @@ function startTicker() {
             const next = tickTetris(state.tetris, dt)
             state = { ...state, tetris: next }
             if (next.phase === 'gameover') stopTicker()
+        } else if (state.activeGame === 'snake') {
+            const next = tickSnake(state.snake, dt)
+            state = { ...state, snake: next }
+            if (next.phase === 'gameover') stopTicker()
         } else {
             stopTicker()
             return
@@ -101,6 +108,8 @@ export function handleGamesKey(key: string): GamesAppState {
                 state = { ...state, activeGame: 'flappy', flappy: resetFlappy(state.flappy.best) }
             } else if (selected.id === 'tetris') {
                 state = { ...state, activeGame: 'tetris', tetris: resetTetris(state.tetris.best) }
+            } else if (selected.id === 'snake') {
+                state = { ...state, activeGame: 'snake', snake: resetSnake(state.snake.best) }
             }
             broadcast()
             return state
@@ -138,6 +147,22 @@ export function handleGamesKey(key: string): GamesAppState {
         state = { ...state, tetris: nextTetris }
         // 'clearing' needs the ticker running so the blink timer advances.
         if (nextTetris.phase === 'playing' || nextTetris.phase === 'clearing') startTicker()
+        else stopTicker()
+        broadcast()
+        return state
+    }
+
+    if (state.activeGame === 'snake') {
+        if (key === 'r') {
+            stopTicker()
+            state = { ...state, activeGame: null, snake: resetSnake(state.snake.best) }
+            broadcast()
+            return state
+        }
+
+        const nextSnake = handleSnakeKey(state.snake, key)
+        state = { ...state, snake: nextSnake }
+        if (nextSnake.phase === 'playing') startTicker()
         else stopTicker()
         broadcast()
         return state

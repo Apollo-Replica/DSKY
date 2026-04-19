@@ -115,7 +115,7 @@ export interface ClockAppState {
 
 // --- Games ---
 
-export type GameId = 'flappy' | 'tetris'
+export type GameId = 'flappy' | 'tetris' | 'snake'
 
 export interface FlappyObstacle {
     x: number       // 0..1 normalized
@@ -162,11 +162,29 @@ export interface TetrisState {
     tickMs: number
 }
 
+export type SnakeDirection = 'up' | 'down' | 'left' | 'right'
+
+export interface SnakeSegment { x: number; y: number }
+
+export interface SnakeState {
+    phase: 'ready' | 'playing' | 'paused' | 'gameover'
+    snake: SnakeSegment[]           // head at index 0
+    direction: SnakeDirection       // current movement direction
+    pendingDirection: SnakeDirection // direction requested for next step
+    food: SnakeSegment
+    stepTimer: number               // seconds accumulated toward next step
+    stepInterval: number            // seconds per step (decreases as snake grows)
+    score: number
+    best: number
+    tickMs: number
+}
+
 export interface GamesAppState {
     activeGame: GameId | null
     selectorIndex: number
     flappy: FlappyState
     tetris: TetrisState
+    snake: SnakeState
 }
 
 // --- Server State ---
