@@ -128,84 +128,54 @@ export function handleGamesKey(key: string): GamesAppState {
         return state
     }
 
-    // Active game
+    // RSET from within any game returns to the selector and resets that game's
+    // state (preserving the best score).
+    if (key === 'r') {
+        stopTicker()
+        state = resetActiveGameToSelector(state)
+        broadcast()
+        return state
+    }
+
+    // Per-game input handling. Tick-driven games (flappy/tetris/snake) start
+    // or stop the ticker based on the new phase; input-driven games don't
+    // need a ticker.
     if (state.activeGame === 'flappy') {
-        // RSET from within a game returns to the selector.
-        if (key === 'r') {
-            stopTicker()
-            state = { ...state, activeGame: null, flappy: resetFlappy(state.flappy.best) }
-            broadcast()
-            return state
-        }
-
-        const nextFlappy = handleFlappyKey(state.flappy, key)
-        state = { ...state, flappy: nextFlappy }
-        if (nextFlappy.phase === 'playing') startTicker()
+        const next = handleFlappyKey(state.flappy, key)
+        state = { ...state, flappy: next }
+        if (next.phase === 'playing') startTicker()
         else stopTicker()
-        broadcast()
-        return state
-    }
-
-    if (state.activeGame === 'tetris') {
-        if (key === 'r') {
-            stopTicker()
-            state = { ...state, activeGame: null, tetris: resetTetris(state.tetris.best) }
-            broadcast()
-            return state
-        }
-
-        const nextTetris = handleTetrisKey(state.tetris, key)
-        state = { ...state, tetris: nextTetris }
+    } else if (state.activeGame === 'tetris') {
+        const next = handleTetrisKey(state.tetris, key)
+        state = { ...state, tetris: next }
         // 'clearing' needs the ticker running so the blink timer advances.
-        if (nextTetris.phase === 'playing' || nextTetris.phase === 'clearing') startTicker()
+        if (next.phase === 'playing' || next.phase === 'clearing') startTicker()
         else stopTicker()
-        broadcast()
-        return state
-    }
-
-    if (state.activeGame === 'snake') {
-        if (key === 'r') {
-            stopTicker()
-            state = { ...state, activeGame: null, snake: resetSnake(state.snake.best) }
-            broadcast()
-            return state
-        }
-
-        const nextSnake = handleSnakeKey(state.snake, key)
-        state = { ...state, snake: nextSnake }
-        if (nextSnake.phase === 'playing') startTicker()
+    } else if (state.activeGame === 'snake') {
+        const next = handleSnakeKey(state.snake, key)
+        state = { ...state, snake: next }
+        if (next.phase === 'playing') startTicker()
         else stopTicker()
-        broadcast()
-        return state
-    }
-
-    if (state.activeGame === 'game2048') {
-        if (key === 'r') {
-            state = { ...state, activeGame: null, game2048: { ...INITIAL_2048, best: state.game2048.best } }
-            broadcast()
-            return state
-        }
+    } else if (state.activeGame === 'game2048') {
         state = { ...state, game2048: handle2048Key(state.game2048, key) }
-        broadcast()
-        return state
-    }
-
-    if (state.activeGame === 'minesweeper') {
-        if (key === 'r') {
-            state = {
-                ...state,
-                activeGame: null,
-                minesweeper: { ...INITIAL_MINESWEEPER, bestTimeSec: state.minesweeper.bestTimeSec },
-            }
-            broadcast()
-            return state
-        }
+    } else if (state.activeGame === 'minesweeper') {
         state = { ...state, minesweeper: handleMinesweeperKey(state.minesweeper, key) }
-        broadcast()
-        return state
     }
 
+    broadcast()
     return state
+}
+
+function resetActiveGameToSelector(s: GamesAppState): GamesAppState {
+    const base = { ...s, activeGame: null as GameId | null }
+    switch (s.activeGame) {
+        case 'flappy':      return { ...base, flappy: resetFlappy(s.flappy.best) }
+        case 'tetris':      return { ...base, tetris: resetTetris(s.tetris.best) }
+        case 'snake':       return { ...base, snake: resetSnake(s.snake.best) }
+        case 'game2048':    return { ...base, game2048: { ...INITIAL_2048, best: s.game2048.best } }
+        case 'minesweeper': return { ...base, minesweeper: { ...INITIAL_MINESWEEPER, bestTimeSec: s.minesweeper.bestTimeSec } }
+        default:            return base
+    }
 }
 
 export function getGameList() {
