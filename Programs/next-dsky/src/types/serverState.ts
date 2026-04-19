@@ -115,7 +115,7 @@ export interface ClockAppState {
 
 // --- Games ---
 
-export type GameId = 'flappy'
+export type GameId = 'flappy' | 'tetris'
 
 export interface FlappyObstacle {
     x: number       // 0..1 normalized
@@ -136,10 +136,37 @@ export interface FlappyState {
     tickMs: number          // server timestamp of last tick (for client interpolation)
 }
 
+export type TetrisPieceType = 'I' | 'O' | 'T' | 'S' | 'Z' | 'J' | 'L'
+export type TetrisCell = 0 | TetrisPieceType
+
+export interface TetrisPiece {
+    type: TetrisPieceType
+    rotation: 0 | 1 | 2 | 3
+    x: number   // column of top-left of shape bounding box
+    y: number   // row (0 = top)
+}
+
+export interface TetrisState {
+    phase: 'ready' | 'playing' | 'paused' | 'clearing' | 'gameover'
+    board: TetrisCell[][]           // 20 rows × 10 cols (row 0 = top)
+    piece: TetrisPiece | null
+    nextType: TetrisPieceType
+    dropTimer: number               // seconds accumulated toward next gravity step
+    dropInterval: number            // seconds per gravity step (decreases with level)
+    clearingRows: number[]          // row indices currently blinking before removal
+    clearTimer: number              // seconds remaining of the clearing blink
+    score: number
+    lines: number
+    level: number
+    best: number
+    tickMs: number
+}
+
 export interface GamesAppState {
     activeGame: GameId | null
     selectorIndex: number
     flappy: FlappyState
+    tetris: TetrisState
 }
 
 // --- Server State ---
