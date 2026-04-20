@@ -7,3 +7,5 @@ fp-info-cache
 *.img*
 **/backups
 **/*-backups
+.pio
+.vscode

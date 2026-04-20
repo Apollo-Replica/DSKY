@@ -21,10 +21,10 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
     - The board is designed to be ordered fully assembled from JLCPCB. The fabrication files (gerbers, BOM, pick-and-place positions) are in the ``Boards/Single_board/production`` folder.
   - Calibrate and flash the firmware:
     - Install PlatformIO into VSCode
-    - File -> Open Workspace from File -> DSKY.code-workspace
+    - Open this repository's root folder in VSCode — PlatformIO will pick up ``platformio.ini`` at the root
     - Each ATmega328P has a slightly different internal oscillator. You must first determine your chip's optimal OSCCAL value:
       1. Flash the ``bare_calibration`` environment to run the OSCCAL sweep
-      2. Use ``firmware/main/tools/osccal_reader.py`` to read the sweep results and find the best value
+      2. Use ``firmware/tools/osccal_reader.py`` to read the sweep results and find the best value
       3. Set the ``-DOSC_CAL=0xNN`` flag in ``platformio.ini`` with your value
       4. Flash the ``bare`` environment with your calibrated firmware
   - Set up the Orange Pi:
