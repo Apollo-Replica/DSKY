@@ -54,7 +54,7 @@ Build VirtualAGC from source or use a pre-built release. The binaries should end
 
 ```bash
 cd ~
-git clone https://github.com/Apollo-Simulation-Peripheral-Lab/DSKY.git
+git clone https://github.com/Apollo-Replica/DSKY.git
 cd DSKY/Programs/next-dsky
 npm install
 npm run build
