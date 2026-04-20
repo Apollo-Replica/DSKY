@@ -17,7 +17,7 @@ export default function CalculatorApp({ serverState }: CalculatorAppProps) {
             height: '100%',
             padding: '2.5cqh 3cqw',
             boxSizing: 'border-box',
-            fontFamily: 'Gorton, "Arial Narrow", sans-serif',
+            fontFamily: 'var(--font-share-tech-mono), ui-monospace, Consolas, monospace',
             color: 'var(--menu-primary)',
         }}>
             {/* Expression line */}

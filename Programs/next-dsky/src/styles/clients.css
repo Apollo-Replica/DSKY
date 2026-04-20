@@ -131,7 +131,7 @@
 }
 
 .toggle-label {
-    font-family: 'Gorton', 'Arial Narrow', sans-serif;
+    font-family: var(--font-share-tech-mono), ui-monospace, Consolas, monospace;
     font-size: 1vh;
     font-weight: 700;
     color: rgba(255,255,255,0.45);

@@ -97,7 +97,7 @@ export default function ClockApp({ serverState }: ClockAppProps) {
             display: 'flex',
             flexDirection: 'column',
             height: '100%',
-            fontFamily: 'Gorton, "Arial Narrow", sans-serif',
+            fontFamily: 'var(--font-share-tech-mono), ui-monospace, Consolas, monospace',
             color: 'var(--menu-primary)',
             overflow: 'hidden',
         }}>

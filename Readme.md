@@ -49,8 +49,3 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
   * **click-generator**: Python program that procedurally generates relay clicking audio sequences to emulate the DSKY's relay boxes.
 * **Boards**
   * **Single_board**: Unified KiCad PCB project containing the keyboard matrix, alarm lights, serial interface, and backlight driver. The ``production`` folder contains ready-to-order JLCPCB fabrication files.
-
-## Repositories used as reference:
-* [AGC_DSKY_Replica](https://github.com/ManoDaSilva/AGC_DSKY_Replica) by ManoDaSilva
-* [agc-mechanical-cad](https://github.com/rrainey/agc-mechanical-cad) by rrainey
-* [dsky-fonts](https://github.com/ehdorrii/dsky-fonts) by ehdorrii
