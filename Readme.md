@@ -39,7 +39,6 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
 * **3D Models**:
   * **0.4 Nozzle:** All printable meshes (enclosure, display housing, keyboard plate, mounts, etc.) designed for a standard 0.4mm nozzle.
   * **Keys (0.2 Nozzle + AMS).3mf:** Multi-color key models for a 0.2mm nozzle with AMS.
-  * **DSKY.7z:** Compressed assembly file in Autodesk Fusion format and STEP file.
 * **Firmware:** PlatformIO project containing the firmware for the bare ATmega328P on the PCB. Includes OSCCAL calibration tooling.
 * **Programs:**
   * **next-dsky**: Full-stack Next.js application that serves as the main DSKY UI and backend. Handles serial communication with the PCB, WebSocket connections to AGC simulators, display rendering, and configuration.    * Requirements: NodeJS >18
@@ -49,3 +48,9 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
   * **click-generator**: Python program that procedurally generates relay clicking audio sequences to emulate the DSKY's relay boxes.
 * **Boards**
   * **Single_board**: Unified KiCad PCB project containing the keyboard matrix, alarm lights, serial interface, and backlight driver. The ``production`` folder contains ready-to-order JLCPCB fabrication files.
+
+## License
+
+This project is licensed under [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](LICENSE).
+
+You are free to build one for yourself, modify the design, and share your changes — as long as you **credit the original**, **do not use it commercially**, and **release your derivatives under the same license**. Commercial sale of this device or its derivatives is not permitted without prior written consent from the copyright holder.
