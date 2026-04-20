@@ -77,9 +77,6 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
         handleAction: (action, data) => dispatchAction(action, data),
         getServerState: () => serverState,
         broadcast,
-        flushKeyToIntegration: async (key) => {
-            await routeKeyToApp(key)
-        },
     })
 
     initWebSocket(wss)

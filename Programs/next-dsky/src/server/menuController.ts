@@ -15,8 +15,6 @@ export interface MenuActionCallbacks {
     getServerState: () => ServerState
     /** Broadcast state to all clients */
     broadcast: () => void
-    /** Flush a buffered key to the active integration */
-    flushKeyToIntegration: (key: string) => Promise<void>
 }
 
 // --- State ---
@@ -36,8 +34,6 @@ const TRIGGER_COUNT = 3
 const TRIGGER_TIMEOUT = 800
 
 let triggerBuffer: number[] = []
-let pendingKeys: string[] = []
-let triggerTimeout: ReturnType<typeof setTimeout> | null = null
 
 // --- Init ---
 
@@ -202,26 +198,13 @@ export function handleMenuKey(key: string) {
 
 // --- Triple-N detection ---
 
-function clearTriggerTimeout() {
-    if (triggerTimeout) {
-        clearTimeout(triggerTimeout)
-        triggerTimeout = null
-    }
-}
-
-async function flushPendingKeys() {
-    for (const key of pendingKeys) {
-        await callbacks.flushKeyToIntegration(key)
-    }
-    pendingKeys = []
-    triggerBuffer = []
-}
-
 /**
  * Process a key press. Returns true if the key was consumed (should not go to integration).
  * Handles:
  * - When menu is open: routes to handleMenuKey
- * - When menu is closed: triple-N detection for opening menu
+ * - When menu is closed: triple-N detection for opening menu. Each 'n' still
+ *   falls through to the integration so NOUN entry isn't delayed; only the
+ *   third N within the window is consumed, to open the menu.
  */
 export async function processKey(key: string): Promise<boolean> {
     // Menu is open — consume all keys
@@ -230,47 +213,23 @@ export async function processKey(key: string): Promise<boolean> {
         return true
     }
 
-    // Menu is closed — check for triple-N trigger
-    if (key === TRIGGER_KEY) {
-        triggerBuffer.push(Date.now())
-        pendingKeys.push(key)
-
-        clearTriggerTimeout()
-
-        if (triggerBuffer.length >= TRIGGER_COUNT) {
-            // Check timing: all presses within timeout of each other
-            let valid = true
-            for (let i = 1; i < triggerBuffer.length; i++) {
-                if (triggerBuffer[i] - triggerBuffer[i - 1] > TRIGGER_TIMEOUT) {
-                    valid = false
-                    break
-                }
-            }
-            if (valid) {
-                pendingKeys = []
-                triggerBuffer = []
-                openMenu()
-                return true
-            } else {
-                await flushPendingKeys()
-                return false
-            }
-        }
-
-        // Waiting for more N presses — set timeout to flush if not completed
-        triggerTimeout = setTimeout(() => {
-            flushPendingKeys()
-        }, TRIGGER_TIMEOUT)
-
-        return true // consume the 'n' while buffering
-    } else {
-        // Non-N key while buffering — flush buffer and let key through
-        if (pendingKeys.length > 0) {
-            clearTriggerTimeout()
-            await flushPendingKeys()
-        }
+    if (key !== TRIGGER_KEY) {
+        triggerBuffer = []
         return false
     }
+
+    const now = Date.now()
+    while (triggerBuffer.length > 0 && now - triggerBuffer[0] > TRIGGER_TIMEOUT) {
+        triggerBuffer.shift()
+    }
+    triggerBuffer.push(now)
+
+    if (triggerBuffer.length >= TRIGGER_COUNT) {
+        triggerBuffer = []
+        openMenu()
+        return true
+    }
+    return false
 }
 
 // --- Auto-navigation hooks ---
