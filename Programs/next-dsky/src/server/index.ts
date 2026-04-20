@@ -20,7 +20,12 @@ function createKeyHandler(label: string) {
         const key = data.toString().toLowerCase().substring(0, 1)
         console.log(`[${label}] KeyPress: ${key}`)
 
-        if (key === 'o') return
+        if (key === 'o') {
+            // PRO release: forward to the integration (NASSP needs this to unlatch
+            // PRO) but skip menu/app/sequence handling, which don't expect it.
+            if (activeIntegration) await activeIntegration.handleKey(key)
+            return
+        }
 
         if (isWifiConnectRunning()) return
 
