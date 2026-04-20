@@ -58,6 +58,7 @@ export class NASSPIntegration extends AgcIntegration {
                 const { compLight, prog, verb, noun, flashing, r1, r2, r3, alarms, powered, anun, numerics, integral } = parsedJSON
                 const [alarmsPowered, ELPowered] = powered.split(' ').map((val: string) => val !== '0')
                 const alarmValues = alarms.split(' ').map((val: string) => val !== '0' && alarmsPowered)
+                const isFlashing = String(flashing).trim() === '1'
 
                 const state = {
                     IlluminateCompLight: compLight === '1',
@@ -77,10 +78,10 @@ export class NASSPIntegration extends AgcIntegration {
                     IlluminatePrioDisp: alarmValues[13],
                     ProgramD1: prog[0].replace(' ', ''),
                     ProgramD2: prog[1].replace(' ', ''),
-                    VerbD1: flashing === '1' ? '' : verb[0].replace(' ', ''),
-                    VerbD2: flashing === '1' ? '' : verb[1].replace(' ', ''),
-                    NounD1: flashing === '1' ? '' : noun[0].replace(' ', ''),
-                    NounD2: flashing === '1' ? '' : noun[1].replace(' ', ''),
+                    VerbD1: isFlashing ? '' : verb[0].replace(' ', ''),
+                    VerbD2: isFlashing ? '' : verb[1].replace(' ', ''),
+                    NounD1: isFlashing ? '' : noun[0].replace(' ', ''),
+                    NounD2: isFlashing ? '' : noun[1].replace(' ', ''),
                     Register1Sign: r1[0].replace(' ', ''),
                     Register1D1: r1[1].replace(' ', ''),
                     Register1D2: r1[2].replace(' ', ''),
