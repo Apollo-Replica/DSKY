@@ -1,0 +1,117 @@
+diff --git a/config.h b/config.h
+new file mode 100644
+index 0000000..67fe47a
+--- /dev/null
++++ b/config.h
+@@ -0,0 +1,6 @@
++/* Hand-written config for the DSKY Flasher build: x64 only, WinUSB from the
++   OS (Windows 8+), so no WDK coinstallers and no libusb0/libusbK files. */
++#define OPT_M64 1
++#define WDF_VER 1011
++#define ENABLE_LOGGING 1
++#define _GNU_SOURCE 1
+diff --git a/libwdi/embedder.h b/libwdi/embedder.h
+index 0313130..99c2c30 100644
+--- a/libwdi/embedder.h
++++ b/libwdi/embedder.h
+@@ -23,7 +23,7 @@
+ #error both 32 and 64 bit support have been disabled - check your config.h
+ #endif
+ 
+-#if !defined(WDK_DIR) && !defined(LIBUSB0_DIR) && !defined(USER_DIR) && !defined(LIBUSBK_DIR)
++#if 0 // DSKY build: WinUSB comes from the OS, nothing else to embed
+ #error at least one of WDK_DIR, LIBUSB0_DIR, LIBUSBK_DIR or USER_DIR must be defined - check your config.h
+ #endif
+ 
+diff --git a/libwdi/libwdi.c b/libwdi/libwdi.c
+index 1501b45..8e2fddd 100644
+--- a/libwdi/libwdi.c
++++ b/libwdi/libwdi.c
+@@ -723,7 +723,7 @@ BOOL LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO* drive
+ 
+ 	switch (driver_type) {
+ 	case WDI_WINUSB:
+-#if defined(WDK_DIR)
++#if 1
+ 		return TRUE;
+ #else
+ 		return FALSE;
+@@ -1472,6 +1472,10 @@ int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, const cha
+ 	}
+ 
+ 	// Write the date and version data
++	if (driver_version[driver_type].dwFileVersionMS == 0) {
++		driver_version[driver_type].dwFileVersionMS = (6 << 16) | 1;
++		driver_version[driver_type].dwFileVersionLS = (7600 << 16) | 16385;
++	}
+ 	file_time.dwHighDateTime = driver_version[driver_type].dwFileDateMS;
+ 	file_time.dwLowDateTime = driver_version[driver_type].dwFileDateLS;
+ 	if ( ((file_time.dwHighDateTime == 0) && (file_time.dwLowDateTime == 0))
+diff --git a/libwdi/winusb.cat.in b/libwdi/winusb.cat.in
+index 9604596..df0d639 100644
+--- a/libwdi/winusb.cat.in
++++ b/libwdi/winusb.cat.in
+@@ -1,5 +1,2 @@
+ # List of the binaries referenced by the WinUSB inf
+ # These are used to generate and self-sign a .cat file
+-
+-WdfCoInstaller#WDF_VERSION#.dll
+-winusbcoinstaller2.dll
+\ No newline at end of file
+diff --git a/libwdi/winusb.inf.in b/libwdi/winusb.inf.in
+index 0c0774e..ae9e5ea 100644
+--- a/libwdi/winusb.inf.in
++++ b/libwdi/winusb.inf.in
+@@ -49,12 +49,6 @@ StartType     = 3
+ ErrorControl  = 1
+ ServiceBinary = %12%\WinUSB.sys
+ 
+-[USB_Install.Wdf]
+-KmdfService = WINUSB, WinUsb_Install
+-
+-[WinUSB_Install]
+-KmdfLibraryVersion = #KMDF_VERSION#
+-
+ [USB_Install.HW]
+ AddReg = #USE_DEVICE_INTERFACE_GUID#
+ 
+@@ -63,38 +57,3 @@ AddReg = #USE_DEVICE_INTERFACE_GUID#
+ 
+ [AddDeviceInterfaceGUID]
+ HKR,,DeviceInterfaceGUIDs,0x10000,%DeviceGUID%
+-
+-[USB_Install.NTx86.CoInstallers]
+-AddReg    = CoInstallers_AddReg
+-CopyFiles = CoInstallers_CopyFiles
+-
+-[USB_Install.NTamd64.CoInstallers]
+-AddReg    = CoInstallers_AddReg
+-CopyFiles = CoInstallers_CopyFiles
+-
+-[USB_Install.NTarm64.CoInstallers]
+-;
+-
+-[CoInstallers_AddReg]
+-HKR,,CoInstallers32,0x00010000,"WdfCoInstaller#WDF_VERSION#.dll,WdfCoInstaller","WinUSBCoInstaller2.dll"
+-
+-[CoInstallers_CopyFiles]
+-WinUSBCoInstaller2.dll
+-WdfCoInstaller#WDF_VERSION#.dll
+-
+-[DestinationDirs]
+-CoInstallers_CopyFiles = 11
+-
+-[SourceDisksNames]
+-1 = %SourceName%
+-
+-[SourceDisksFiles.x86]
+-WinUSBCoInstaller2.dll = 1,x86
+-WdfCoInstaller#WDF_VERSION#.dll = 1,x86
+-
+-[SourceDisksFiles.amd64]
+-WinUSBCoInstaller2.dll = 1,amd64
+-WdfCoInstaller#WDF_VERSION#.dll = 1,amd64
+-
+-[SourceDisksFiles.arm64]
+-;
+\ No newline at end of file

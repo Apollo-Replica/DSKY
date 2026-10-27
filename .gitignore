@@ -9,3 +9,8 @@ fp-info-cache
 **/*-backups
 .pio
 .vscode
+firmware/tools/dsky-flasher/build
+firmware/tools/dsky-flasher/dist
+firmware/tools/dsky-flasher/*.spec
+firmware/tools/dsky-flasher/flash_log.csv
+__pycache__

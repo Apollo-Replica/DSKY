@@ -1,0 +1,2 @@
+# libwdi sources are CRLF; the patch must keep its line endings to apply
+firmware/tools/dsky-flasher/driver/*.patch -text
