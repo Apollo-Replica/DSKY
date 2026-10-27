@@ -25,7 +25,7 @@ void setup() {
   dskyState[12] = 0x04;
   dskyState[14] = 20;
 
-  applyOscCalFromBuildFlag();
+  applyOscCal();
   Serial.begin(SERIAL_BAUD);
   initAlarms();
 }

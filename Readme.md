@@ -23,11 +23,11 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
   - Calibrate and flash the firmware:
     - Install PlatformIO into VSCode
     - Open this repository's root folder in VSCode — PlatformIO will pick up ``platformio.ini`` at the root
-    - Each ATmega328P has a slightly different internal oscillator. You must first determine your chip's optimal OSCCAL value:
-      1. Flash the ``bare_calibration`` environment to run the OSCCAL sweep
-      2. Use ``firmware/tools/osccal_reader.py`` to read the sweep results and find the best value
-      3. Set the ``-DOSC_CAL=0xNN`` flag in ``platformio.ini`` with your value
-      4. Flash the ``bare`` environment with your calibrated firmware
+    - Once per board, with a USBasp on the ICSP header (J2), burn the bootloader: ``pio run -e bare_usb_bootloader -t bootloader``. From then on everything goes over the board's USB-C. Never use the Arduino IDE's "Burn bootloader" with a Nano/Uno selected: it sets crystal fuses and the board has no crystal.
+    - Each ATmega328P has a slightly different internal oscillator. Calibrate it once; the value is kept in the chip's EEPROM, so the firmware is the same for every board:
+      1. Upload the OSCCAL sweep: ``pio run -e bare_usb_calibration -t upload``
+      2. Run ``python firmware/tools/osccal_reader.py --write``: it reads the sweep, picks the best value and stores it in EEPROM
+      3. Upload the firmware: ``pio run -e bare_usb -t upload``
   - Set up the Orange Pi:
     - See the [Orange Pi setup guide](Documentation/orangepi-setup.md).
     - Pre-built .img files have been shared around the community, but they are not recommended as they may be out of date.

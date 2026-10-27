@@ -9,11 +9,17 @@ This script listens on a serial port, parses bursts, scores them by how many
 0x55 bytes were received correctly, and prints the best OSCCAL observed.
 
 Usage:
-  python osccal_reader.py --port COM3 --baud 115200 --bursts 40
+  python osccal_reader.py --port COM3
+  python osccal_reader.py --port COM3 --write   # store it in the board's EEPROM
 
 Notes:
 - Install dependency: pip install pyserial
-- Match baud to the calibration firmware (default 115200).
+- Match baud to the calibration firmware (default 38400).
+- Opening the port resets the board (DTR), so the sweep starts over and is
+  read whole; reading stops once the bursts stop coming.
+- --write stores the midpoint of the longest perfect span in EEPROM byte 0
+  through the urboot bootloader (avrdude -c urclock). The board must have
+  been set up with env:bare_usb_bootloader. Then upload env:bare_usb.
 - If your firmware uses a different burst length or markers, adjust constants
   below or override with CLI flags.
 """
@@ -21,6 +27,9 @@ from __future__ import annotations
 
 import argparse
 import collections
+import os
+import shutil
+import subprocess
 import sys
 import time
 from typing import Dict, List, Optional, Tuple
@@ -126,7 +135,8 @@ def best_perfect_span(scores: Dict[int, List[Score]], burst_len: int) -> Optiona
     best_span = (perfect_cals[0], perfect_cals[0])
     cur_start = cur_end = perfect_cals[0]
     for cal in perfect_cals[1:]:
-        if cal == cur_end + 1:
+        # 0x7F -> 0x80 jumps between the two OSCCAL ranges, not one step.
+        if cal == cur_end + 1 and cal != 0x80:
             cur_end = cal
         else:
             if (cur_end - cur_start) > (best_span[1] - best_span[0]):
@@ -170,14 +180,40 @@ def auto_detect_port(preferred: Optional[str] = None) -> str:
     return chosen.device
 
 
+def find_avrdude(explicit: Optional[str]) -> Tuple[str, List[str]]:
+    if explicit:
+        return explicit, []
+    pio = os.path.join(os.path.expanduser("~"), ".platformio", "packages", "tool-avrdude")
+    for name in ("avrdude.exe", "avrdude"):
+        path = os.path.join(pio, name)
+        if os.path.isfile(path):
+            return path, ["-C", os.path.join(pio, "avrdude.conf")]
+    found = shutil.which("avrdude")
+    if found:
+        return found, []
+    raise RuntimeError("avrdude not found. Build once with PlatformIO or pass --avrdude.")
+
+
+def write_eeprom(port: str, cal: int, avrdude: Optional[str], upload_baud: int) -> bool:
+    exe, conf = find_avrdude(avrdude)
+    cmd = [exe, *conf, "-c", "urclock", "-p", "atmega328p", "-P", port, "-b", str(upload_baud),
+           "-U", f"eeprom:w:0x{cal:02X}:m"]
+    print("\n" + " ".join(cmd))
+    return subprocess.call(cmd) == 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read OSCCAL sweep bursts and pick the best value.")
     parser.add_argument("--port", help="Serial port (e.g., COM3 or /dev/ttyUSB0). Use 'auto' or omit to auto-detect.")
-    parser.add_argument("--baud", type=int, default=115200, help="Baud rate (matches calibration firmware)")
-    parser.add_argument("--bursts", type=int, default=40, help="Target bursts to collect before deciding")
+    parser.add_argument("--baud", type=int, default=38400, help="Baud rate (matches calibration firmware)")
+    parser.add_argument("--bursts", type=int, default=0, help="Stop after this many bursts (0 = read the whole sweep)")
     parser.add_argument("--timeout", type=float, default=0.2, help="Serial read timeout seconds")
     parser.add_argument("--burst-len", type=int, default=DEFAULT_BURST_LEN, help="Payload length in bytes")
     parser.add_argument("--max-seconds", type=float, default=30.0, help="Stop after this many seconds even if bursts not reached")
+    parser.add_argument("--idle-seconds", type=float, default=2.0, help="Stop once no burst has arrived for this long")
+    parser.add_argument("--write", action="store_true", help="Store the chosen OSCCAL in EEPROM via the urboot bootloader")
+    parser.add_argument("--avrdude", help="avrdude executable (default: PlatformIO's, then PATH)")
+    parser.add_argument("--upload-baud", type=int, default=38400, help="Bootloader baud for --write")
     args = parser.parse_args()
 
     try:
@@ -193,8 +229,11 @@ def main() -> int:
     print(f"Listening on {port} at {args.baud} baud...")
     start = time.time()
     frames_seen = 0
+    last_frame = None
     try:
-        while frames_seen < args.bursts and (time.time() - start) < args.max_seconds:
+        while (args.bursts <= 0 or frames_seen < args.bursts) and (time.time() - start) < args.max_seconds:
+            if last_frame is not None and time.time() - last_frame > args.idle_seconds:
+                break  # sweep finished
             chunk = ser.read(512)
             if chunk:
                 buf.extend(chunk)
@@ -205,6 +244,8 @@ def main() -> int:
                     # Live feedback per burst
                     print(f"cal=0x{cal:02X} correct={s[0]:3d} run={s[1]:3d}")
                 frames_seen += len(frames)
+                if frames:
+                    last_frame = time.time()
     finally:
         ser.close()
 
@@ -237,6 +278,15 @@ def main() -> int:
             f"avg_run={stats['avg_run']:.1f}, max_run={stats['max_run']}, "
             f"perfect_frames={int(stats['perfect_frames'])}, frames={int(stats['frames'])}"
         )
+
+    if args.write:
+        if not span:
+            print("\nNo OSCCAL value gave a perfect burst; not writing EEPROM.", file=sys.stderr)
+            return 1
+        if not write_eeprom(port, span[2], args.avrdude, args.upload_baud):
+            print("\nEEPROM write failed.", file=sys.stderr)
+            return 1
+        print(f"\nOSCCAL 0x{span[2]:02X} stored in EEPROM. Now upload env:bare_usb.")
 
     return 0
 

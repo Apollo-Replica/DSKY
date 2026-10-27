@@ -1,7 +1,13 @@
 #include "osc_calibration.h"
+#include <EEPROM.h>
 
-void applyOscCalFromBuildFlag() {
+void applyOscCal() {
+#if defined(OSC_CAL)
   OSCCAL = OSC_CAL;
+#else
+  uint8_t cal = EEPROM.read(OSC_CAL_EEPROM_ADDR);
+  if (cal != 0xFF) OSCCAL = cal;
+#endif
 }
 
 static void sendBurst(uint8_t cal) {
