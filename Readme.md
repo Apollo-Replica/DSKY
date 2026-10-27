@@ -14,6 +14,7 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
   - Run start.bat and answer the prompts
 
 **Do you want to build the whole DSKY replica?**
+  - Get the parts: see the [bill of materials](Documentation/bill-of-materials.md).
   - Print the .3mf/.stl meshes found in the '3D Models' folder.
     - The recommended display is the **960x544 AMOLED MIPI display**, connected to the Orange Pi via HDMI through an adapter board.
     - A legacy 40-Pin 5" 800x480 LCD variant also exists but is no longer recommended; new builds should use the AMOLED.
@@ -37,7 +38,7 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
   - Updates are installed from the DSKY itself: open the menu (press NOUN three times) and go to **SETTINGS → UPDATE**. See [Documentation/updates.md](Documentation/updates.md).
 
 ## Repository contents:
-* **Documentation**: Useful information to better understand how the different pieces of the puzzle talk to each other. Includes the [Orange Pi setup guide](Documentation/orangepi-setup.md), the [OTA update system](Documentation/updates.md), how to [deploy code to a device over the network](Documentation/deploying-to-a-device.md), and how to [develop on a physical DSKY with hot reload](Documentation/dev-mode.md).
+* **Documentation**: Useful information to better understand how the different pieces of the puzzle talk to each other. Includes the [bill of materials](Documentation/bill-of-materials.md), the [Orange Pi setup guide](Documentation/orangepi-setup.md), the [OTA update system](Documentation/updates.md), how to [deploy code to a device over the network](Documentation/deploying-to-a-device.md), and how to [develop on a physical DSKY with hot reload](Documentation/dev-mode.md).
 * **2D Models**: SVG files for alarm labels and backlights.
 * **3D Models**:
   * **0.4 Nozzle:** All printable meshes (enclosure, display housing, keyboard plate, mounts, etc.) designed for a standard 0.4mm nozzle.
