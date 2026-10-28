@@ -5,7 +5,7 @@ pip install pyinstaller pyserial platformio
 
 echo.
 echo Building firmware and calibration images...
-pio run -d ..\..\.. -e bare_usb -e bare_usb_calibration || goto :error
+python -m platformio run -d ..\..\.. -e bare_usb -e bare_usb_calibration || goto :error
 
 echo.
 echo Building DSKYFlasher.exe...

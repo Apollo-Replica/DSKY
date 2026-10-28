@@ -8,7 +8,9 @@ Two tabs, one per way a board is connected:
     Boards that already carry both are skipped. Done once per board.
   - Firmware (USB): each board plugged in over its USB-C (CH340) gets its
     OSCCAL calibrated into EEPROM if it has none, then the firmware. Several
-    boards can be plugged in at once.
+    boards can be plugged in at once. Afterwards each board stays in a key
+    test until it's unplugged: every key pressed shows up, and any garbled
+    line counts as a glitch.
 No clicks per board: start the tab, then connect and disconnect boards.
 
 A USBasp without a driver gets WinUSB installed through driver/wdi-simple.exe
@@ -56,11 +58,22 @@ SWEEP_MAX_SECONDS = 30
 SWEEP_IDLE_SECONDS = 2.0
 OSCCAL_EEPROM_ADDR = 0       # OSC_CAL_EEPROM_ADDR
 
+# The firmware prints each key press as one line (SERIAL_BAUD in main.cpp, the
+# keymap in keyboard.cpp), and "O" when PRO is released.
+FIRMWARE_BAUD = 9600
+KEY_NAMES = {
+    "V": "VERB", "N": "NOUN", "+": "+", "-": "-",
+    "0": "0", "1": "1", "2": "2", "3": "3", "4": "4", "5": "5", "6": "6", "7": "7", "8": "8", "9": "9",
+    "C": "CLR", "P": "PRO", "K": "KEY REL", "E": "ENTR", "R": "RSET",
+}
+PRO_RELEASED = "O"
+
 # WCH CH340, the board's USB-serial chip. Anything else is never touched.
 CH340_VID = 0x1A86
 
-OUTCOME_COLORS = {"done": "#1a7f37", "skipped": "#57606a", "failed": "#cf222e"}
-BOARD_COLUMNS = (("#", 30), ("Port", 70), ("OSCCAL", 70), ("Progress", 160), ("Status", 260))
+OUTCOME_COLORS = {"done": "#1a7f37", "skipped": "#57606a", "failed": "#cf222e", "": "black"}
+BOARD_COLUMNS = (("#", 30), ("Port", 70), ("OSCCAL", 70), ("Progress", 160), ("Status", 230),
+                 ("Key test", 200))
 
 POLL_SECONDS = 1.0
 
@@ -267,6 +280,21 @@ def run_sweep(port: str, on_progress) -> tuple[int | None, int]:
     return (span[2] if span else None), frames_seen
 
 
+def split_key_lines(buf: bytearray) -> tuple[list[str], bytearray]:
+    """Complete lines from the firmware's output, and the unfinished rest.
+    A line that never ends is junk: it comes out as one line once it's too long."""
+    lines = []
+    while True:
+        end = buf.find(b"\n")
+        if end < 0:
+            if len(buf) > 8:
+                lines.append(bytes(buf).decode("ascii", errors="backslashreplace"))
+                buf = bytearray()
+            return lines, buf
+        lines.append(bytes(buf[:end]).rstrip(b"\r").decode("ascii", errors="backslashreplace"))
+        buf = buf[end + 1:]
+
+
 def beep(ok: bool):
     if winsound is None:
         return
@@ -323,8 +351,9 @@ class BoardList:
                 "osccal": ttk.Label(f, text="", font=("Consolas", 9)),
                 "progress": ttk.Progressbar(f, length=150, maximum=100),
                 "status": ttk.Label(f, text="connecting..."),
+                "keys": ttk.Label(f, text=""),
             }
-            for col, key in enumerate(("n", "port", "osccal", "progress", "status")):
+            for col, key in enumerate(("n", "port", "osccal", "progress", "status", "keys")):
                 row[key].grid(row=r, column=col, sticky="we" if key == "progress" else "w", padx=4, pady=1)
             self.rows[iid] = row
             self.canvas.update_idletasks()
@@ -332,8 +361,9 @@ class BoardList:
         self.app.root.after(0, _do)
         return iid
 
-    def update(self, iid: str, progress=None, outcome=None, **fields):
-        """Update a row from any thread. progress: 0..1, or "none" to hide the bar."""
+    def update(self, iid: str, progress=None, outcome=None, keys_outcome=None, **fields):
+        """Update a row from any thread. progress: 0..1, or "none" to hide the bar.
+        outcome / keys_outcome color the Status / Key test cells."""
         def _do():
             row = self.rows.get(iid)
             if row is None:
@@ -346,6 +376,8 @@ class BoardList:
                 row["progress"]["value"] = max(0.0, min(1.0, progress)) * 100
             if outcome is not None:
                 row["status"].configure(foreground=OUTCOME_COLORS[outcome])
+            if keys_outcome is not None:
+                row["keys"].configure(foreground=OUTCOME_COLORS[keys_outcome])
         self.app.root.after(0, _do)
 
 
@@ -353,7 +385,7 @@ class DskyFlasherApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("DSKY Flasher")
-        self.root.geometry("820x640")
+        self.root.geometry("900x660")
         self.avrdude = find_avrdude()
         self.counts = {"done": 0, "skipped": 0, "failed": 0}
         self.counts_lock = threading.Lock()
@@ -439,7 +471,8 @@ class DskyFlasherApp:
     def _build_firmware_tab(self, parent):
         ttk.Label(parent, padding=(8, 8, 8, 4), wraplength=760, text=(
             "Plug boards that already have the bootloader into this PC through their USB-C (J3). "
-            "A board without OSCCAL in EEPROM is calibrated first (~20 s), then gets the firmware.")
+            "A board without OSCCAL in EEPROM is calibrated first (~20 s), then gets the firmware. "
+            "Then press every key: the Key test column counts them until you unplug the board.")
         ).pack(fill=tk.X)
         self.fw_browse = self._image_row(parent, "Firmware:", "fw_hex")
         self.cal_browse = self._image_row(parent, "Calibration:", "cal_hex")
@@ -451,6 +484,9 @@ class DskyFlasherApp:
         self.fw_force_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts, variable=self.fw_force_var,
                         text="Re-flash boards that already carry this firmware").pack(anchor=tk.W)
+        self.fw_test_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(opts, variable=self.fw_test_var,
+                        text="Key test afterwards: listen to the board until it's unplugged").pack(anchor=tk.W)
         bar = ttk.Frame(parent, padding=8)
         bar.pack(fill=tk.X)
         self.fw_btn = ttk.Button(bar, text="Start", command=self._on_fw_toggle)
@@ -481,6 +517,13 @@ class DskyFlasherApp:
         with self.counts_lock:
             if mode == "firmware":
                 self.counts[outcome] += 1
+        self._csv(mode, port, osccal, outcome, status)
+        self.root.after(0, self._show_counts)
+        beep(outcome != "failed")
+
+    def _csv(self, mode: str, port: str, osccal: str, outcome: str, status: str):
+        """One line per board and step in flash_log.csv next to the program."""
+        with self.counts_lock:
             log_path = os.path.join(app_base_dir(), "flash_log.csv")
             new_file = not os.path.exists(log_path)
             try:
@@ -493,8 +536,6 @@ class DskyFlasherApp:
                                 os.path.basename(image), status])
             except OSError as e:
                 self._log(f"  can't write {log_path}: {e}")
-        self.root.after(0, self._show_counts)
-        beep(outcome != "failed")
 
     def _check_files(self, *paths: str) -> bool:
         if not self.avrdude:
@@ -677,6 +718,7 @@ class DskyFlasherApp:
                 blist.update(iid, progress="none")
                 self._finish(blist, iid, "firmware", port, f"0x{cal:02X}", "skipped",
                              "already has this firmware — skipped")
+                self._fw_test(blist, iid, port, f"0x{cal:02X}")
                 return
 
         # 4. Upload the firmware (avrdude verifies it) and check OSCCAL survived.
@@ -694,6 +736,72 @@ class DskyFlasherApp:
         how = "calibrated" if calibrated else "kept"
         self._finish(blist, iid, "firmware", port, f"0x{cal:02X}", "done",
                      f"OK — firmware + OSCCAL 0x{cal:02X} ({how})")
+        self._fw_test(blist, iid, port, f"0x{cal:02X}")
+
+    def _fw_test(self, blist: BoardList, iid: str, port: str, osccal: str):
+        """Listen to the freshly flashed board until it's unplugged: every key
+        press must arrive as a clean line. Anything else is a glitch (a wrong
+        OSCCAL garbles the UART first)."""
+        if not self.fw_test_var.get():
+            return
+        seen: set[str] = set()
+        glitches, last = 0, ""
+
+        def show():
+            text = f"{len(seen)}/{len(KEY_NAMES)} keys"
+            missing = [n for k, n in KEY_NAMES.items() if k not in seen]
+            if 0 < len(missing) <= 4:
+                text += " · missing " + " ".join(missing)
+            elif last:
+                text += f" · last {last}"
+            if glitches:
+                text += f" · {glitches} glitch{'es' if glitches > 1 else ''}"
+            outcome = "failed" if glitches else ("done" if not missing else "")
+            blist.update(iid, keys=text, keys_outcome=outcome)
+
+        blist.update(iid, keys="press every key...", keys_outcome="")
+        self._log(f"[{port}] key test — press every key, unplug the board when done")
+        try:
+            # Opening the port resets the board (DTR); the firmware is up ~1 s later.
+            with serial.Serial(port, FIRMWARE_BAUD, timeout=0.2) as ser:
+                buf, next_check = bytearray(), time.time() + POLL_SECONDS
+                while True:
+                    chunk = ser.read(64)
+                    if chunk:
+                        buf.extend(chunk)
+                        lines, buf = split_key_lines(buf)
+                        for line in lines:
+                            if line in KEY_NAMES:
+                                complete_before = len(seen) == len(KEY_NAMES)
+                                seen.add(line)
+                                last = KEY_NAMES[line]
+                                self._log(f"[{port}] key {last}")
+                                if not complete_before and len(seen) == len(KEY_NAMES) and not glitches:
+                                    self._log(f"[{port}] all {len(KEY_NAMES)} keys OK")
+                                    beep(True)
+                            elif line == PRO_RELEASED:
+                                pass
+                            else:
+                                glitches += 1
+                                self._log(f"[{port}] GLITCH: {line!r}")
+                                beep(False)
+                        show()
+                    if time.time() >= next_check:
+                        next_check = time.time() + POLL_SECONDS
+                        if port not in {p.device for p in serial.tools.list_ports.comports()}:
+                            break
+        except serial.SerialException:
+            pass  # unplugged mid-read
+
+        missing = [n for k, n in KEY_NAMES.items() if k not in seen]
+        if glitches:
+            outcome, status = "failed", f"{glitches} glitches"
+        elif missing:
+            outcome, status = "incomplete", "not pressed: " + " ".join(missing)
+        else:
+            outcome, status = "done", f"all {len(KEY_NAMES)} keys"
+        self._log(f"[{port}] key test ended: {status}")
+        self._csv("keytest", port, osccal, outcome, status)
 
 
 def main():
