@@ -60,7 +60,7 @@ About **360 g of grey and 160 g of black PLA** (estimates: 55 % of the solid vol
 
 ### Keycaps (FDM, 0.2 mm nozzle, multi-color/AMS) — `3D Models/Keys (0.2 Nozzle + AMS).3mf`
 
-19 keycaps with the legends printed in. `(TOOL) Key Shipping Holder.stl` is only for shipping.
+19 keycaps with the legends printed in: a black PLA Matte body with a white PLA legend core, painted in Bambu Studio. Printed on a P2S at 0.14 mm with the `Teclas Apollo 0.2` preset. The full settings and the earlier PETG attempt are in [printing-keycaps.md](printing-keycaps.md). `(TOOL) Key Shipping Holder.stl` is only for shipping.
 
 ### Alarm panel — `2D Models/`
 
