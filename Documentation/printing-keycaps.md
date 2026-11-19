@@ -1,6 +1,6 @@
 # Printing the keycaps
 
-How the 19 keycaps are printed today, the settings that are saved in the slicer files, and what we tried before. Everything here comes from the 3MF files and Bambu Studio presets (collected 2026-11-01). Nothing below is a guess.
+How the 19 keycaps are printed today, the settings that are saved in the slicer files, and what we tried before. Everything here comes from the 3MF files, Bambu Studio presets and test prints (collected 2026-11-01, updated 2026-11-19). Anything not yet confirmed says so.
 
 ## Current production — `3D Models/Keys (0.2 Nozzle + AMS).3mf`
 
@@ -49,6 +49,92 @@ Known drawbacks of this method (from the 2026-05 key RFQ, `OneDrive\DSKY\Key_Fac
 
 `Keys (FDM).3mf` sets the keys object to a 0.10 mm layer height. Other files in that folder (`Keys (FDM 2-Part).3mf`, `Keys (FDM) (Sideways).3mf`, `keybody*.3mf`, `noun.3mf`) contain geometry only, with no slicer settings.
 
-## Not found
+## Layered legend: white, transparent, white (November 2026)
 
-We have no recorded print that stacked **white, then translucent, then white PLA** by layer height. We searched the 3MFs in this repo and its git history, `OneDrive\3D Objects\DSKY`, `OneDrive\DSKY`, the Bambu Studio presets and recent projects, and earlier work notes. If that variant gets printed, save its 3MF here and add its layer heights and filament changes to this page.
+The legend is printed in three colours stacked by height, so the letters stay white when the key is off and light up evenly when it is on. The keys print face down at 0.14 mm per layer, and the legend part (letters 0–0.5 mm plus a full diffuser plate 0.5–0.8 mm) is cut by height:
+
+| Layers | Printed height | Legend colour |
+|---|---|---|
+| 1–3 | 0–0.42 mm | white (cream PLA) |
+| 4–5 | 0.42–0.70 mm | transparent PLA |
+| 6 | 0.70–0.84 mm | white |
+| 7 and up | | black body only |
+
+Filament slots in the project (AMS slots as loaded on 2026-11-17):
+
+| Filament | Use | AMS |
+|---|---|---|
+| 1 | black body, Bambu PLA Matte | A4 |
+| 2 | white legend. Cream PLA `#FCECD6` was used until the official white PLA arrives | A3 |
+| 3 | transparent PLA | A2 |
+| 4 | black again, for the first layer of the letter counters (next section) | A4 |
+
+The PETG HF white in A1 is not used: it sticks badly to PLA.
+
+`tools/build_layered_keys.py` builds this project from the production 3MF. It cuts each legend with manifold3d, removes the colour painting, sets the extruder per part and adds the extra filaments.
+
+### First layer from the outside in
+
+On layer 1 the printer must lay down the black outline first, then the white letters, then the black islands inside the letters (the counters of 0, 4, 6, 8, 9, PRO, VERB, NOUN…). With this order every colour has a wall to lean on and layer 1 comes out clean.
+
+- The 17 counters are separate small parts (0–0.5 mm). Their first layer (0–0.14 mm) is assigned to filament 4, a copy of the black mapped to the same AMS slot. The rest of each counter stays on filament 1.
+- The first-layer filament order is set to `1, 2, 4, 3`.
+- Cost: two more filament changes (9 in total). The 19 one-piece keys take about 23 h.
+
+### Adhesion, flow and walls on the P2S (attempts of 2026-11-17/18)
+
+- **Bed:** with the SuperTack at 60 °C on the first layer and 55 °C after, one key came loose and the rest were barely stuck. Use **65 °C** on the whole print. Bambu's stock SuperTack value for PLA is 45 °C, and the user presets `… Warm Supertack` use 60 °C.
+- **Cream PLA flow:** this cream filament under-extrudes. Its flow ratio is set to **1.08** (was 0.98). Go back to the normal value with the official white.
+- **Walls:** with `outer wall/inner wall` some layers stuck out more than others on the side walls. The G-code had the same outline on every layer, so the problem was how the wall was laid down, not the model. Use **`inner wall/outer wall`**.
+
+## Two-piece keycap (November 2026, in test)
+
+The key is split into a face cap and a body:
+
+- **Face cap:** carries the legend. It prints face down with the colour recipe above.
+- **Body:** walls, struts and MX stem, all black. It prints on its side.
+
+Printed on its side, the body's sliding walls have their layer lines running in the travel direction, so they do not catch on the ridges of the keyboard frame. The colour part is now only 4.1 mm tall instead of 14.4 mm, which makes it faster and gives less to come loose.
+
+Files in `3D Models/Keys (2-Part FDM)/`:
+
+- `Faces with legends (0.2 Nozzle + AMS).3mf`: the 19 caps on one plate, 29 layers, about 8 h 40 min, 9 filament changes.
+- `Body - print on its side.stl`: one body, already lying on its side. The body is the same for all 19 keys.
+- `tools/`: `build_faces.py` + `faces_geom.py` (caps for all keys) and `two_piece.py` (split of one key, with the body).
+
+Geometry (key "1", same for all):
+
+| Part | Value |
+|---|---|
+| Body outside | 22.44 × 22.44 mm, 12.32 mm long |
+| Face cap | 22.14 × 22.14 × 2.1 mm |
+| Plug | 2 mm high, 1 mm wall, 0.10 mm clearance per side, chamfered lead-in |
+| Seam | 2.1 mm from the face |
+| Cap inset | 0.15 mm per side |
+| Body edge chamfer | 0.25 mm |
+| Light path | cavity above the 0.8 mm legend, kept open |
+
+The cap inset means only the body touches the frame when the key travels, and a small mismatch between the parts disappears in the step.
+
+The previous two-piece attempt is `Keys (FDM 2-Part).3mf` and `keybody1.3mf` (April–May 2026). Its cap was a 0.65 mm plate of 22.44 mm, and its body measured 22.64 mm, wider than the cap, so the parts never sat flush.
+
+**Printing the body on its side:**
+
+- Lay the body on the wall the two stem struts run down to (−Y in the model). The struts then grow from the bed up to the stem.
+- The MX cross uses the profile from `keybody1.3mf`. The top of the horizontal arm is raised from 0.64 to 0.78 mm, and a 45° roof rises to the vertical arm, which is widened from 1.28 to 1.40 mm. The roof of the hole then holds itself up with no bridge. Print with the roof up.
+- The stem lies horizontal and needs normal (not tree) supports under it.
+
+**Build note:** body 55 of the production 3MF is not watertight. So every cap is built from the clean body of key 42, minus that key's own legend and counters.
+
+## Bambu Studio pitfalls when printing from the GUI
+
+The projects are sliced with the CLI (`bambu-studio --slice 0 --export-3mf`) and checked there. Bambu Studio then re-slices when the file is opened to print, and some settings change:
+
+- **Plate type:** the GUI loads the project as **"Placa de ingeniería"** (Engineering plate, 55 °C), not SuperTack. Before slicing, pick **"Placa enfriamiento de Bambu SuperTack"** in the plate drop-down. Otherwise the bed runs at 55 °C even though the project says 65 °C.
+- **First-layer order:** the GUI ignores the global `first_layer_print_sequence` in `project_settings.config`, and on 2026-11-19 it printed the white first. The plate itself must carry it, in `Metadata/model_settings.config` inside `<plate>`:
+  `first_layer_sequence_choice = customize` and `first_layer_print_sequence = "1 2 4 3"`.
+  The build scripts now write both. It is not yet confirmed that the GUI reads them: check the plate settings before sending.
+- **Number of filament changes:** compare it between the CLI slice and the GUI slice. A different count (8 instead of 9) means the order changed.
+- **Printer in the send dialog:** a freshly started Bambu Studio may show no printer there. Pick it from the drop-down.
+- **SuperTack plate warning:** the printer sometimes reports a false "plate does not match" (0500-8051 090402) a few minutes in. If the SuperTack really is on the bed, choose "ignore and resume".
+- **Bed temperature check:** read it over MQTT as soon as the print starts. Remote G-code (`gcode_line`) is rejected by the firmware ("mqtt message verify failed"), so a wrong temperature has to be fixed from Bambu Studio's Device tab.
