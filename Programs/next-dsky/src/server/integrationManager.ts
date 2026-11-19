@@ -1,5 +1,5 @@
 import { AgcIntegration, getIntegration } from './integrations'
-import { createSerial, createSerialFromConfig, closeSerial } from './serial'
+import { connectSerialWithRetry, closeSerial } from './serial'
 import { mdnsService } from './mdnsService'
 import { initCalculator, handleCalculatorKey } from './apps/calculatorApp'
 import { initClock, handleClockKey, getClockState, cleanup as cleanupClock } from './apps/clockApp'
@@ -61,7 +61,7 @@ export const startIntegration = async (config: IntegrationConfig) => {
 
     if (config.serialPort) {
         console.log(`[Server] Creating serial connection to: ${config.serialPort}`)
-        await createSerialFromConfig(config.serialPort, programOptions.baud || '9600')
+        connectSerialWithRetry(config.serialPort, programOptions.baud || '9600')
     }
 
     const integrationOptions: Record<string, any> = { ...programOptions }

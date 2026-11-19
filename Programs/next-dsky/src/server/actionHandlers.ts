@@ -1,6 +1,6 @@
 import { exec } from 'child_process'
 import { SerialPort } from 'serialport'
-import { createSerial, createSerialFromConfig, closeSerial } from './serial'
+import { connectSerialWithRetry, closeSerial } from './serial'
 import { mdnsService } from './mdnsService'
 import { detectNetworkInterfaces } from './networkInterfaces'
 import { saveNetworkInterface } from './networkSettings'
@@ -73,9 +73,7 @@ const handleSwitchApp = async (data: any) => {
 const handleSetSerial = async (data: any) => {
     const { port } = data
     await closeSerial()
-    if (port) {
-        await createSerialFromConfig(port, programOptions.baud || '9600')
-    }
+    connectSerialWithRetry(port, programOptions.baud || '9600')
     updateSerial({ port: port || null })
 }
 
@@ -159,9 +157,7 @@ export const handleHaConfigure = async (data: any) => {
 export const handleHaReconfigure = async () => {
     console.log('[Server] Removing HA configuration')
     await closeSerial()
-    if (programOptions.serial) {
-        await createSerial(programOptions.serial, programOptions.baud)
-    }
+    connectSerialWithRetry(programOptions.serial, programOptions.baud)
     try {
         const fs = await import('fs')
         const path = await import('path')
@@ -224,9 +220,7 @@ export const dispatchAction = async (type: string, data?: any) => {
         case 'action:install-update':         await installUpdate(); break
         case 'action:enter-idle':
             await closeSerial()
-            if (programOptions.serial) {
-                await createSerial(programOptions.serial, programOptions.baud)
-            }
+            connectSerialWithRetry(programOptions.serial, programOptions.baud)
             enterIdle()
             break
         default:

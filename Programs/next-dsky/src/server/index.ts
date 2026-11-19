@@ -1,5 +1,5 @@
 import { WebSocketServer } from 'ws'
-import { createSerial } from './serial'
+import { connectSerialWithRetry } from './serial'
 import { initWebSocket, setWebSocketListener, updateWebSocketState, setMessageListener } from './socket'
 import { updateSerialState, setSerialListener } from './serial'
 import { mdnsService } from './mdnsService'
@@ -43,11 +43,9 @@ function createKeyHandler(label: string) {
         if (key === 'p' && plusCount >= 3 && (activeIntegration !== null || serverState.app.id !== null)) {
             resetTimeout = setTimeout(async () => {
                 console.log(`[Server] PRO+++ detected via ${label}`)
-                const { closeSerial, createSerial } = await import('./serial')
+                const { closeSerial, connectSerialWithRetry } = await import('./serial')
                 await closeSerial()
-                if (programOptions.serial) {
-                    await createSerial(programOptions.serial, programOptions.baud)
-                }
+                connectSerialWithRetry(programOptions.serial, programOptions.baud)
                 enterIdle()
             }, 3000)
             return
@@ -160,7 +158,9 @@ export const initServer = async (wss: WebSocketServer, options: any) => {
     process.on('SIGTERM', shutdown)
     process.on('SIGINT', shutdown)
 
-    await createSerial(options.serial, options.baud)
+    // Never wait for the board: without it the server must still start and
+    // take actions (menu, WiFi setup...). The port is opened in the background.
+    connectSerialWithRetry(options.serial, options.baud)
 
     const doUpdate = () => {
         const update = consumePendingUpdate()

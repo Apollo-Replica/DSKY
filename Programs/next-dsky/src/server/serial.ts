@@ -109,17 +109,47 @@ const openSerial = async (serialPath: string, baudRate = '9600'): Promise<Serial
     return next
 }
 
-export const createSerial = async (serialPath: string | undefined, baudRate = '9600'): Promise<SerialPort | null> => {
-    if (!serialPath || serialPath === 'none') return null
-    return await openSerial(serialPath, baudRate)
-}
+const RETRY_MS = 5000
+// Bumped by every connectSerialWithRetry() and closeSerial(): a pending retry
+// loop only keeps going while the generation it started with is current.
+let connectGeneration = 0
 
-export const createSerialFromConfig = async (serialPath: string, baudRate = '9600'): Promise<SerialPort | null> => {
-    if (!serialPath || serialPath === 'none') return null
-    return await openSerial(serialPath, baudRate)
+/**
+ * Open `serialPath` without blocking the caller and without ever throwing.
+ * The DSKY board may be missing, enumerate after the app starts, or get
+ * replugged, so a failed open is retried every few seconds and a dropped
+ * port is reopened. A later call or closeSerial() cancels the loop.
+ */
+export const connectSerialWithRetry = (serialPath: string | null | undefined, baudRate = '9600'): void => {
+    if (!serialPath || serialPath === 'none') return
+    const generation = ++connectGeneration
+    let warned = false
+
+    const attempt = async () => {
+        if (generation !== connectGeneration) return
+        try {
+            const port = await openSerial(serialPath, baudRate)
+            if (generation !== connectGeneration) return
+            console.log(`[Serial] Connected to ${serialPath}`)
+            warned = false
+            port.once('close', () => {
+                if (generation === connectGeneration) setTimeout(attempt, RETRY_MS)
+            })
+        } catch (err) {
+            if (!warned) {
+                const reason = err instanceof Error ? err.message : String(err)
+                console.warn(`[Serial] ${serialPath} not available (${reason}); retrying every ${RETRY_MS / 1000}s`)
+                warned = true
+            }
+            setTimeout(attempt, RETRY_MS)
+        }
+    }
+
+    void attempt()
 }
 
 export const closeSerial = async (): Promise<void> => {
+    connectGeneration++
     if (!serial) return
     const port = serial
     console.log('[Serial] Closing connection')
