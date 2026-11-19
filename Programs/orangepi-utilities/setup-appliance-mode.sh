@@ -13,7 +13,7 @@ echo "=== DSKY Appliance Mode Setup ==="
 echo ""
 
 # 1. Install packages and disable auto-update services that fight the appliance
-echo "[1/7] Installing packages and disabling appliance-hostile services..."
+echo "[1/8] Installing packages and disabling appliance-hostile services..."
 sudo apt install -y openbox feh unclutter
 # Auto-updates can spin up mid-boot and interfere with the DSKY startup.
 sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
@@ -21,7 +21,7 @@ sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer 2>/dev/null
 sudo apt remove -y update-manager update-notifier 2>/dev/null || true
 
 # 2. Silent kernel boot
-echo "[2/7] Configuring silent boot..."
+echo "[2/8] Configuring silent boot..."
 BOOT_ENV="/boot/orangepiEnv.txt"
 BOOT_ARGS="quiet splash loglevel=0 logo.nologo vt.global_cursor_default=0 consoleblank=0"
 if [ -f "$BOOT_ENV" ]; then
@@ -41,7 +41,7 @@ else
 fi
 
 # 3. Create custom X session and register it with LightDM
-echo "[3/7] Configuring LightDM auto-login..."
+echo "[3/8] Configuring LightDM auto-login..."
 sudo tee /usr/share/xsessions/dsky.desktop > /dev/null << 'EOF'
 [Desktop Entry]
 Name=DSKY
@@ -60,7 +60,7 @@ EOF
 echo "  Created /etc/lightdm/lightdm.conf.d/50-appliance.conf"
 
 # 4. Create custom X session (preserves local customizations on re-run)
-echo "[4/7] Creating ~/.xsession..."
+echo "[4/8] Creating ~/.xsession..."
 if [ -f ~/.xsession ]; then
     echo "  ~/.xsession already exists, leaving it alone."
 else
@@ -76,7 +76,7 @@ fi
 
 # 5. Legacy cleanup: remove autostart entries from older DSKY installs.
 # Harmless on a fresh image — these files won't exist.
-echo "[5/7] Legacy cleanup (older DSKY installs only)..."
+echo "[5/8] Legacy cleanup (older DSKY installs only)..."
 for f in ~/.config/autostart/rotate-display.desktop ~/.config/autostart/dsky.desktop; do
     if [ -f "$f" ]; then
         rm -f "$f"
@@ -85,7 +85,7 @@ for f in ~/.config/autostart/rotate-display.desktop ~/.config/autostart/dsky.des
 done
 
 # 6. Configure silent getty (hide login text on tty1)
-echo "[6/7] Configuring silent login prompt..."
+echo "[6/8] Configuring silent login prompt..."
 sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
 sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf > /dev/null << 'EOF'
 [Service]
@@ -96,7 +96,7 @@ sudo systemctl daemon-reload
 echo "  Configured silent getty on tty1."
 
 # 7. Install DSKY Plymouth watermark (replaces the Orange Pi logo on boot)
-echo "[7/7] Installing DSKY boot logo..."
+echo "[7/8] Installing DSKY boot logo..."
 WATERMARK_SRC="$(dirname "$(readlink -f "$0")")/watermark.png"
 WATERMARK_DST="/usr/share/plymouth/themes/orangepi/watermark.png"
 if [ -f "$WATERMARK_SRC" ] && [ -d "$(dirname "$WATERMARK_DST")" ]; then
@@ -106,6 +106,31 @@ if [ -f "$WATERMARK_SRC" ] && [ -d "$(dirname "$WATERMARK_DST")" ]; then
     echo "  Installed $WATERMARK_SRC -> $WATERMARK_DST and rebuilt initramfs."
 else
     echo "  SKIPPED: watermark.png or orangepi Plymouth theme not found."
+fi
+
+# 8. WiFi setup portal (SETTINGS -> WIFI): permissions, DSKY-styled page, stable WiFi
+echo "[8/8] Configuring the WiFi setup portal..."
+# The app runs `sudo wifi-connect` without a terminal, so it needs a password-less
+# rule for exactly that binary (and shutdown, used by SETTINGS -> SHUTDOWN/REBOOT).
+SUDOERS_FILE=/etc/sudoers.d/dsky
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/wifi-connect, /usr/sbin/shutdown, /sbin/shutdown\n' "$USER" \
+    | sudo tee "$SUDOERS_FILE" > /dev/null
+sudo chmod 440 "$SUDOERS_FILE"
+sudo visudo -cf "$SUDOERS_FILE" > /dev/null && echo "  Created $SUDOERS_FILE"
+# wifi-connect serves its page from /usr/local/share/wifi-connect/ui when the
+# binary lives in /usr/local/sbin; install ours there instead of the stock UI.
+PORTAL_SRC="$(dirname "$(readlink -f "$0")")/wifi-portal"
+if [ -f "$PORTAL_SRC/index.html" ]; then
+    sudo install -d /usr/local/share/wifi-connect/ui
+    sudo install -m 644 "$PORTAL_SRC/index.html" /usr/local/share/wifi-connect/ui/index.html
+    echo "  Installed the DSKY WiFi portal page."
+fi
+[ -x /usr/local/sbin/wifi-connect ] || echo "  NOTE: /usr/local/sbin/wifi-connect not found - install it (see orangepi-setup.md)."
+# WiFi power saving on the Zero 2W adds ~1 s of latency and drops SSH sessions.
+if [ -d /etc/NetworkManager ]; then
+    sudo mkdir -p /etc/NetworkManager/conf.d
+    printf '[connection]\nwifi.powersave = 2\n' | sudo tee /etc/NetworkManager/conf.d/wifi-powersave-off.conf > /dev/null
+    echo "  Disabled WiFi power saving."
 fi
 
 echo ""

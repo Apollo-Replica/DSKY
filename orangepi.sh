@@ -72,7 +72,7 @@ if [ "$1" = "cron" ]; then
     killall chromium-browser chromium &>/dev/null
     if [ $? -eq 0 ]; then
         export DISPLAY=:0
-        chromium-browser --start-fullscreen --incognito http://localhost:3000 >/dev/null 2>&1 &
+        chromium-browser --kiosk --start-fullscreen --incognito http://localhost:3000 >/dev/null 2>&1 &
         sleep 5
         wmctrl -a chromium
     fi
@@ -124,7 +124,7 @@ else
 
         if [ "$app_ok" = "1" ]; then
             killall chromium-browser chromium &>/dev/null
-            chromium-browser --start-fullscreen --incognito \
+            chromium-browser --kiosk --start-fullscreen --incognito \
                 --noerrdialogs --disable-infobars --disable-session-crashed-bubble \
                 --no-default-browser-check --no-first-run \
                 http://localhost:3000/?view=screen >/dev/null 2>&1 &

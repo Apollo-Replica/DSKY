@@ -4,7 +4,9 @@ This guide walks you through setting up an Orange Pi Zero 2W from scratch to run
 
 ## Base OS
 
-Flash the official **Orange Pi Zero 2W** image (Ubuntu Jammy, arm64) to your SD card using your preferred tool (e.g. balenaEtcher, dd).
+Flash the official **Orange Pi Zero 2W** image (Ubuntu Jammy desktop, arm64, version 1.0.2 or newer) to your SD card using your preferred tool (e.g. balenaEtcher, dd).
+
+> Use a recent image: older builds ship U-Boot 2021.07, which does not boot on newer Zero 2W boards (e.g. the 1.5 GB model). The board then shows only the red power LED, with no HDMI output.
 
 Default credentials are typically `orangepi` / `orangepi`.
 
@@ -37,7 +39,17 @@ echo '/swapfile swap swap sw 0 0' | sudo tee -a /etc/fstab
 ## Install dependencies
 
 ```bash
-sudo apt install -y git x11vnc
+sudo apt install -y git x11vnc wmctrl curl software-properties-common
+
+# Node.js 20 (next-dsky runtime)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Chromium as a native .deb (Ubuntu's own package is a slow snap on the Zero 2W)
+sudo add-apt-repository -y ppa:xtradeb/apps
+printf 'Package: chromium-browser\nPin: release o=Ubuntu\nPin-Priority: -1\n' | sudo tee /etc/apt/preferences.d/no-snap-chromium
+sudo apt update && sudo apt install -y chromium
+sudo ln -sf /usr/bin/chromium /usr/local/bin/chromium-browser   # name used by orangepi.sh
 ```
 
 ### VirtualAGC (optional)
@@ -135,24 +147,17 @@ sudo systemctl start x11vnc
 
 [wifi-connect](https://github.com/balena-os/wifi-connect) provides a captive portal for configuring WiFi on a headless device. The DSKY's configuration UI can trigger it.
 
+Install the prebuilt arm64 binary from its releases (no Rust toolchain needed):
+
 ```bash
-# Install build dependencies
-sudo apt install -y build-essential pkg-config libnm-dev libdbus-1-dev network-manager curl
-
-# Install Rust
-curl https://sh.rustup.rs -sSf | sh
-source "$HOME/.cargo/env"
-
-# Clone and build
-git clone https://github.com/balena-os/wifi-connect.git ~/wifi-connect
-cd ~/wifi-connect
-cargo build --release
-
-# Install the binary
-sudo cp target/release/wifi-connect /usr/local/sbin/wifi-connect
+curl -fsSL https://github.com/balena-os/wifi-connect/releases/download/v4.11.91/wifi-connect-aarch64-unknown-linux-gnu.tar.gz \
+  | sudo tar -xz -C /usr/local/sbin wifi-connect
+sudo chown root:root /usr/local/sbin/wifi-connect
 ```
 
-The `orangepi.sh` launcher script already passes `--wifi-connect` to `next-dsky` when needed.
+The appliance-mode script (step 8) then installs the DSKY-styled portal page from `Programs/orangepi-utilities/wifi-portal/` into `/usr/local/share/wifi-connect/ui`, adds the password-less sudo rule the app needs to launch `wifi-connect`, and turns off WiFi power saving. If you install `wifi-connect` after running it, simply run the script again; it is safe to re-run.
+
+The `orangepi.sh` launcher script already passes `--wifi-connect` to `next-dsky` when needed. From the DSKY menu, **SETTINGS → WIFI** starts a "DSKY Replica" access point; join it from a phone and pick your network on the page that opens (or browse to `http://192.168.42.1`).
 
 ## Software updates
 

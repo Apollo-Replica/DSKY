@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050a05">
+<title>DSKY WiFi Setup</title>
+<!--
+  Captive portal UI for balena wifi-connect, styled like the DSKY menu.
+  Served by wifi-connect from /usr/local/share/wifi-connect/ui (picked up
+  automatically when the binary lives in /usr/local/sbin). Self-contained:
+  the phone has no internet while it is on the "DSKY Replica" network.
+  API: GET /networks -> [{ssid, security}], POST /connect {ssid, identity, passphrase}
+-->
+<style>
+  :root {
+    --bg: #050a05;
+    --panel: rgba(10, 20, 10, 0.92);
+    --primary: #4ade80;
+    --secondary: #2d6b47;
+    --border: #1a3a1a;
+    --accent: #facc15;
+    --danger: #f87171;
+    --btn: #166534;
+    --btn-hover: #15803d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--primary); }
+  body {
+    font-family: "Share Tech Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    min-height: 100vh;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    display: flex; justify-content: center;
+  }
+  main { width: 100%; max-width: 440px; }
+  header { display: flex; align-items: center; gap: 12px; margin: 8px 0 20px; }
+  .lamp {
+    font-size: 11px; letter-spacing: .12em; padding: 6px 8px; border-radius: 3px;
+    background: #1d1d12; color: #6b6b4a; border: 1px solid #2c2c1c; text-align: center; line-height: 1.1;
+  }
+  .lamp.on { background: var(--accent); color: #1a1600; border-color: var(--accent); box-shadow: 0 0 12px rgba(250, 204, 21, .45); }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .14em; font-weight: 700; }
+  h1 small { display: block; font-size: 12px; color: var(--secondary); letter-spacing: .2em; font-weight: 400; margin-top: 2px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+  .title {
+    font-size: 12px; color: var(--secondary); text-transform: uppercase; letter-spacing: .25em;
+    padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .title button { all: unset; cursor: pointer; color: var(--accent); letter-spacing: .15em; font-size: 12px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li button {
+    all: unset; box-sizing: border-box; width: 100%; cursor: pointer;
+    display: flex; align-items: center; gap: 10px; padding: 12px 10px; border-radius: 5px;
+    border: 1px solid transparent; font-size: 16px; color: var(--primary);
+  }
+  li button:hover, li button:focus-visible { background: rgba(22, 101, 52, .35); }
+  li button[aria-pressed="true"] { border-color: var(--primary); background: rgba(22, 101, 52, .5); }
+  .ssid { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sec { font-size: 11px; color: var(--secondary); letter-spacing: .12em; text-transform: uppercase; }
+  .empty { color: var(--secondary); font-size: 14px; padding: 8px 2px; }
+  label { display: block; font-size: 12px; color: var(--secondary); letter-spacing: .2em; text-transform: uppercase; margin: 12px 0 6px; }
+  input {
+    width: 100%; font: inherit; font-size: 17px; color: var(--primary); background: #020502;
+    border: 1px solid var(--border); border-radius: 5px; padding: 12px; outline: none;
+  }
+  input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(74, 222, 128, .2); }
+  .row { display: flex; gap: 8px; align-items: stretch; }
+  .row input { flex: 1; }
+  .ghost { all: unset; cursor: pointer; padding: 0 12px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; letter-spacing: .12em; color: var(--secondary); display: flex; align-items: center; }
+  .go {
+    all: unset; box-sizing: border-box; cursor: pointer; width: 100%; text-align: center; margin-top: 16px;
+    background: var(--btn); color: #eafff1; padding: 14px; border-radius: 6px; font-size: 16px; letter-spacing: .3em; font-weight: 700;
+  }
+  .go:hover { background: var(--btn-hover); }
+  .go[disabled] { opacity: .45; cursor: default; }
+  .msg { font-size: 14px; line-height: 1.5; color: var(--primary); }
+  .msg b { color: var(--accent); font-weight: 400; }
+  .err { color: var(--danger); font-size: 14px; margin-top: 10px; min-height: 1em; }
+  .hidden { display: none; }
+  .blink { animation: blink 1s steps(2, start) infinite; }
+  @keyframes blink { to { visibility: hidden; } }
+  footer { text-align: center; font-size: 11px; color: var(--secondary); letter-spacing: .2em; margin-top: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="lamp on" id="lamp">UPLINK<br>ACTY</div>
+    <h1>DSKY REPLICA<small>WIFI SETUP</small></h1>
+  </header>
+
+  <section id="pick">
+    <div class="panel">
+      <div class="title"><span>Networks</span><button type="button" id="refresh">RESCAN</button></div>
+      <ul id="list"><li class="empty">Scanning<span class="blink">_</span></li></ul>
+    </div>
+
+    <form class="panel" id="form" autocomplete="off">
+      <label for="ssid">Network</label>
+      <input id="ssid" name="ssid" required autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Pick one above or type it">
+      <div id="identityWrap" class="hidden">
+        <label for="identity">User</label>
+        <input id="identity" name="identity" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div id="passWrap">
+        <label for="passphrase">Password</label>
+        <div class="row">
+          <input id="passphrase" name="passphrase" type="password" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <button type="button" class="ghost" id="show">SHOW</button>
+        </div>
+      </div>
+      <button class="go" id="go" type="submit">PRO &rsaquo; CONNECT</button>
+      <div class="err" id="err"></div>
+    </form>
+  </section>
+
+  <section id="done" class="panel hidden">
+    <div class="title"><span>Connecting</span></div>
+    <p class="msg">The DSKY is joining <b id="doneSsid"></b><span class="blink">_</span></p>
+    <p class="msg">This network (<b>DSKY Replica</b>) will now disappear and your phone will go back to its usual WiFi.</p>
+    <p class="msg">If the DSKY screen still shows the WiFi QR after a minute, the password was probably wrong: open <b>SETTINGS &rsaquo; WIFI</b> again and retry.</p>
+  </section>
+
+  <footer>APOLLO GUIDANCE COMPUTER &middot; DSKY</footer>
+</main>
+<script>
+(function () {
+  var list = document.getElementById('list');
+  var ssidIn = document.getElementById('ssid');
+  var idWrap = document.getElementById('identityWrap');
+  var passWrap = document.getElementById('passWrap');
+  var err = document.getElementById('err');
+  var go = document.getElementById('go');
+  var networks = [];
+  var selected = null;
+
+  function secLabel(s) {
+    s = (s || '').toLowerCase();
+    if (s === 'none' || s === '') return 'open';
+    return s;
+  }
+
+  function applySecurity(sec) {
+    sec = (sec || '').toLowerCase();
+    idWrap.className = sec === 'enterprise' ? '' : 'hidden';
+    passWrap.className = sec === 'none' ? 'hidden' : '';
+  }
+
+  function render() {
+    list.innerHTML = '';
+    if (!networks.length) {
+      var li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'No networks found. Rescan or type the name below.';
+      list.appendChild(li);
+      return;
+    }
+    networks.forEach(function (n) {
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', selected === n.ssid ? 'true' : 'false');
+      var name = document.createElement('span');
+      name.className = 'ssid';
+      name.textContent = n.ssid;
+      var sec = document.createElement('span');
+      sec.className = 'sec';
+      sec.textContent = secLabel(n.security);
+      b.appendChild(name);
+      b.appendChild(sec);
+      b.onclick = function () {
+        selected = n.ssid;
+        ssidIn.value = n.ssid;
+        applySecurity(n.security);
+        render();
+        var p = document.getElementById(n.security === 'enterprise' ? 'identity' : 'passphrase');
+        if (n.security !== 'none') p.focus();
+      };
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+  }
+
+  function load() {
+    list.innerHTML = '<li class="empty">Scanning<span class="blink">_</span></li>';
+    var x = new XMLHttpRequest();
+    x.open('GET', '/networks');
+    x.onload = function () {
+      try {
+        var seen = {};
+        networks = JSON.parse(x.responseText).filter(function (n) {
+          if (!n.ssid || seen[n.ssid]) return false;
+          seen[n.ssid] = 1;
+          return true;
+        });
+      } catch (e) { networks = []; }
+      render();
+    };
+    x.onerror = function () { networks = []; render(); };
+    x.send();
+  }
+
+  ssidIn.oninput = function () {
+    var m = networks.filter(function (n) { return n.ssid === ssidIn.value; })[0];
+    selected = m ? m.ssid : null;
+    applySecurity(m ? m.security : 'wpa');
+    render();
+  };
+
+  document.getElementById('refresh').onclick = load;
+  document.getElementById('show').onclick = function () {
+    var p = document.getElementById('passphrase');
+    p.type = p.type === 'password' ? 'text' : 'password';
+    this.textContent = p.type === 'password' ? 'SHOW' : 'HIDE';
+  };
+
+  document.getElementById('form').onsubmit = function (e) {
+    e.preventDefault();
+    err.textContent = '';
+    var ssid = ssidIn.value;
+    if (!ssid) { err.textContent = 'Pick or type a network.'; return; }
+    go.disabled = true;
+    var x = new XMLHttpRequest();
+    x.open('POST', '/connect');
+    x.setRequestHeader('Content-Type', 'application/json');
+    var finish = function () {
+      document.getElementById('pick').className = 'hidden';
+      document.getElementById('doneSsid').textContent = ssid;
+      document.getElementById('done').className = 'panel';
+      document.getElementById('lamp').className = 'lamp';
+    };
+    x.onload = function () {
+      if (x.status >= 200 && x.status < 300) finish();
+      else { go.disabled = false; err.textContent = 'The DSKY rejected the request (' + x.status + '). Try again.'; }
+    };
+    // The access point goes down as soon as the DSKY starts connecting,
+    // so a dropped request usually means it worked.
+    x.onerror = finish;
+    x.send(JSON.stringify({
+      ssid: ssid,
+      identity: document.getElementById('identity').value,
+      passphrase: document.getElementById('passphrase').value
+    }));
+  };
+
+  load();
+})();
+</script>
+</body>
+</html>
