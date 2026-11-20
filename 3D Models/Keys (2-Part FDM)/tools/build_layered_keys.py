@@ -192,6 +192,9 @@ for k in ('different_settings_to_system', 'inherits_group'):
     v = d[k]; assert len(v) == 5, (k, v)
     d[k] = v[:4] + [v[1]] + v[4:]
 d['first_layer_print_sequence'] = ['1', '2', '4', '3']
+# the GUI only keeps process changes listed in different_settings_to_system[0]
+keys0 = set(d['different_settings_to_system'][0].split(';')) | {'first_layer_print_sequence', 'wall_sequence'}
+d['different_settings_to_system'][0] = ';'.join(sorted(k for k in keys0 if k))
 files['Metadata/project_settings.config'] = json.dumps(d, indent=4).encode()
 files['Metadata/filament_settings_3.config'] = files['Metadata/filament_settings_2.config']
 files['Metadata/filament_settings_4.config'] = files['Metadata/filament_settings_1.config']

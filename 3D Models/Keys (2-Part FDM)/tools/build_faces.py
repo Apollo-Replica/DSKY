@@ -150,6 +150,9 @@ for k in ('different_settings_to_system', 'inherits_group'):
     v = d[k]; assert len(v) == 5, (k, v)
     d[k] = v[:4] + [v[1]] + v[4:]
 d['first_layer_print_sequence'] = ['1', '2', '4', '3']
+# the GUI only keeps process changes listed in different_settings_to_system[0]
+keys0 = set(d['different_settings_to_system'][0].split(';')) | {'first_layer_print_sequence', 'wall_sequence'}
+d['different_settings_to_system'][0] = ';'.join(sorted(k for k in keys0 if k))
 d['supertack_plate_temp'] = ['65'] * 4; d['supertack_plate_temp_initial_layer'] = ['65'] * 4
 fr = d['filament_flow_ratio']; fr[2] = fr[3] = '1.08'
 d['wall_sequence'] = 'inner wall/outer wall'

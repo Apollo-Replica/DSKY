@@ -87,7 +87,7 @@ On layer 1 the printer must lay down the black outline first, then the white let
 - **Cream PLA flow:** this cream filament under-extrudes. Its flow ratio is set to **1.08** (was 0.98). Go back to the normal value with the official white.
 - **Walls:** with `outer wall/inner wall` some layers stuck out more than others on the side walls. The G-code had the same outline on every layer, so the problem was how the wall was laid down, not the model. Use **`inner wall/outer wall`**.
 
-## Two-piece keycap (November 2026, in test)
+## Two-piece keycap (November 2026)
 
 The key is split into a face cap and a body:
 
@@ -100,7 +100,9 @@ Files in `3D Models/Keys (2-Part FDM)/`:
 
 - `Faces with legends (0.2 Nozzle + AMS).3mf`: the 19 caps on one plate, 29 layers, about 8 h 40 min, 9 filament changes.
 - `Body - print on its side.stl`: one body, already lying on its side. The body is the same for all 19 keys.
-- `tools/`: `build_faces.py` + `faces_geom.py` (caps for all keys) and `two_piece.py` (split of one key, with the body).
+- `Bodies x20 (0.4 nozzle).3mf`: 20 bodies for the P2S with a 0.4 nozzle on the textured PEI plate, ready to open in Bambu Studio (see below).
+- `tools/`: `build_faces.py` + `faces_geom.py` (caps for all keys), `build_bodies.py` + `bodies_geom.py` (5 bodies with the 0.2 nozzle project) and `two_piece.py` (split of one key, with the body).
+- `p04/`: how the 0.4 nozzle bodies project was made (`resolve.py`, the two preset override files and `add_blockers.py`).
 
 Geometry (key "1", same for all):
 
@@ -122,7 +124,21 @@ The previous two-piece attempt is `Keys (FDM 2-Part).3mf` and `keybody1.3mf` (Ap
 
 - Lay the body on the wall the two stem struts run down to (−Y in the model). The struts then grow from the bed up to the stem.
 - The MX cross uses the profile from `keybody1.3mf`. The top of the horizontal arm is raised from 0.64 to 0.78 mm, and a 45° roof rises to the vertical arm, which is widened from 1.28 to 1.40 mm. The roof of the hole then holds itself up with no bridge. Print with the roof up.
-- The stem lies horizontal and needs normal (not tree) supports under it.
+- The stem lies horizontal and needs normal (not tree) supports under it, and so do the lower tips of the two struts. With a 30° support angle the slicer leaves them unsupported.
+- Raising the angle also puts support inside the cross hole: on its flat 1.4 mm top and, above about 45°, on the roof. Support there cannot be removed. So each body gets a **support blocker** (a 4.4 × 7.8 × 4.6 mm box over the cross hole, `<part subtype="support_blocker">` in `model_settings.config`).
+
+**Body print settings.** The bodies printed with the 0.2 nozzle (0.14 mm layers, 4 walls of 0.2 mm) came out flimsy. The bodies are printed with the **0.4 nozzle**:
+
+| Setting | Value |
+|---|---|
+| Printer / process / filament | Bambu Lab P2S 0.4 nozzle / 0.16mm High Quality @BBL P2S / Bambu PLA Matte @BBL P2S |
+| Walls | 4 (the 1.4 mm walls come out nearly solid) |
+| Sparse infill | 40 % |
+| Support | normal(auto), threshold angle 44°, no support under bridges, blocker in the cross |
+| Plate | Textured PEI, 60 °C |
+| Time | 20 bodies in about 4 h 53 min, 53 g plus 19 g of support |
+
+With the 0.2 nozzle project (`tools/build_bodies.py`) the threshold is 55°. The 0.2 nozzle bodies were too weak, so it is only kept for reference.
 
 **Build note:** body 55 of the production 3MF is not watertight. So every cap is built from the clean body of key 42, minus that key's own legend and counters.
 
@@ -131,10 +147,12 @@ The previous two-piece attempt is `Keys (FDM 2-Part).3mf` and `keybody1.3mf` (Ap
 The projects are sliced with the CLI (`bambu-studio --slice 0 --export-3mf`) and checked there. Bambu Studio then re-slices when the file is opened to print, and some settings change:
 
 - **Plate type:** the GUI loads the project as **"Placa de ingeniería"** (Engineering plate, 55 °C), not SuperTack. Before slicing, pick **"Placa enfriamiento de Bambu SuperTack"** in the plate drop-down. Otherwise the bed runs at 55 °C even though the project says 65 °C.
-- **First-layer order:** the GUI ignores the global `first_layer_print_sequence` in `project_settings.config`, and on 2026-11-19 it printed the white first. The plate itself must carry it, in `Metadata/model_settings.config` inside `<plate>`:
-  `first_layer_sequence_choice = customize` and `first_layer_print_sequence = "1 2 4 3"`.
-  The build scripts now write both. It is not yet confirmed that the GUI reads them: check the plate settings before sending.
+- **Settings that disappear on re-slice:** the GUI rebuilds each preset from the system preset and keeps only the changes listed in `different_settings_to_system` in `project_settings.config` (entry 0 for the process, one entry per filament, the last one for the printer). A change that is not listed there is silently reverted. On 2026-11-19 this undid the first-layer order (the white printed first), the supports and the bed temperature. The build scripts now add every key they change to that list. The first-layer order is also written on the plate (`first_layer_sequence_choice = customize`, `first_layer_print_sequence = "1 2 4 3"` in `<plate>` of `model_settings.config`).
 - **Number of filament changes:** compare it between the CLI slice and the GUI slice. A different count (8 instead of 9) means the order changed.
 - **Printer in the send dialog:** a freshly started Bambu Studio may show no printer there. Pick it from the drop-down.
+- **AMS slot in the send dialog:** when a spool is not identified (no RFID), Bambu Studio maps the black filament to another slot (A2 or A3). Check the mapping and set it to the black spool by hand.
+- **Nozzle diameter:** the printer reports its nozzle over MQTT (`device.nozzle.info[0].diameter`). After changing the nozzle, set the new diameter on the printer screen and check it before sending.
+- **Raw G-code:** Bambu Studio does not print a loose `.gcode` file, it only uploads it. Send a 3MF project.
+- **CLI with other presets:** `--load-settings` with system preset files does not resolve their `inherits` chain (it sliced with a generic start G-code at 200 °C). `p04/resolve.py` writes fully resolved presets that still name their parent.
 - **SuperTack plate warning:** the printer sometimes reports a false "plate does not match" (0500-8051 090402) a few minutes in. If the SuperTack really is on the bed, choose "ignore and resume".
 - **Bed temperature check:** read it over MQTT as soon as the print starts. Remote G-code (`gcode_line`) is rejected by the firmware ("mqtt message verify failed"), so a wrong temperature has to be fixed from Bambu Studio's Device tab.

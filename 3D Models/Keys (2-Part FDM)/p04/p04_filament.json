@@ -1,0 +1,1 @@
+{"type": "filament", "name": "PLA Matte cuerpos 0.4", "inherits": "Bambu PLA Matte @BBL P2S", "from": "User", "instantiation": "true", "textured_plate_temp": ["60"], "textured_plate_temp_initial_layer": ["60"], "compatible_printers": ["Bambu Lab P2S 0.4 nozzle"]}
