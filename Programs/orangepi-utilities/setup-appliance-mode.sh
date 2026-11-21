@@ -19,6 +19,9 @@ sudo apt install -y openbox feh unclutter
 sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
 # Update notifiers are desktop-oriented and unnecessary in appliance mode.
 sudo apt remove -y update-manager update-notifier 2>/dev/null || true
+# brltty (braille display support) claims the board's CH340 USB-serial adapter
+# (1a86:7523) right after boot, so /dev/ttyUSB0 disappears and the keypad is dead.
+sudo apt purge -y brltty 2>/dev/null || true
 
 # 2. Silent kernel boot
 echo "[2/8] Configuring silent boot..."

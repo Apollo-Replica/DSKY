@@ -41,6 +41,9 @@ echo '/swapfile swap swap sw 0 0' | sudo tee -a /etc/fstab
 ```bash
 sudo apt install -y git x11vnc wmctrl curl software-properties-common
 
+# brltty grabs the board's CH340 USB-serial adapter and /dev/ttyUSB0 vanishes
+sudo apt purge -y brltty
+
 # Node.js 20 (next-dsky runtime)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
@@ -86,6 +89,7 @@ What the script does:
 
 - Installs `openbox`, `feh`, and `unclutter` (minimal WM, splash loader, cursor hider).
 - Disables `apt-daily.timer` / `apt-daily-upgrade.timer` and removes `update-manager`/`update-notifier` so auto-updates don't fight the appliance.
+- Purges `brltty`, which otherwise takes over the board's CH340 serial adapter (see Notes).
 - Sets silent kernel boot args in `/boot/orangepiEnv.txt` (`quiet splash loglevel=0`, hides console cursor and blanking).
 - Registers a custom `dsky` X session and configures LightDM to auto-login the `orangepi` user into it.
 - Creates `~/.xsession`, which launches `openbox` and runs `~/DSKY/orangepi.sh`.
@@ -165,7 +169,11 @@ After this initial setup the device updates itself over the air: new versions pu
 
 ## Notes
 
-- The Orange Pi connects to the PCB via USB serial (`/dev/ttyUSB0`).
+- The Orange Pi connects to the PCB via USB serial (`/dev/ttyUSB0`, a CH340 adapter).
+- If the keypad does nothing and `/dev/ttyUSB0` is missing, check `sudo dmesg | grep ttyUSB`: a line like
+  `usbfs: interface 0 claimed by ch341 while 'brltty' sets config #1` followed by
+  `ch341-uart converter now disconnected from ttyUSB0` means brltty took the port. Fix it with
+  `sudo apt purge -y brltty` and a reboot.
 - The `orangepi.sh` script handles display rotation, splash, starting `next-dsky` with the correct serial port, opening Chromium fullscreen, and restarting on crash.
 - `unclutter` is launched by `orangepi.sh` to hide the mouse cursor immediately.
 - The fstab uses `noatime,commit=600` to reduce SD card writes.
