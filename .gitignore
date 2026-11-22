@@ -3,6 +3,7 @@
 fp-info-cache
 *#auto_saved_files#
 *.f3d
+!3D Models/DSKY.f3d
 *.step
 *.img*
 **/backups
