@@ -44,13 +44,6 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
   * **0.4 Nozzle:** All printable meshes (enclosure, display housing, keyboard plate, mounts, etc.) designed for a standard 0.4mm nozzle.
   * **Keys (0.2 Nozzle + AMS).3mf:** Multi-color key models for a 0.2mm nozzle with AMS.
   * **DSKY.f3d:** The Fusion 360 source of the whole assembly, with every part in place. Edit this one, not the meshes.
-
-## Contributing to the 3D models
-1. Open ``3D Models/DSKY.f3d`` in Fusion 360 (File → Open → Open from my computer).
-2. Make your change and test-print the parts you touched.
-3. Open a pull request with the updated ``DSKY.f3d`` and the printable file you tested (.3mf or .stl), plus a photo of the print if you can.
-
-The ``.f3d`` is a binary file that git cannot merge, so keep each pull request to one change and update it only when something real changed.
 * **Firmware:** PlatformIO project containing the firmware for the bare ATmega328P on the PCB. Includes OSCCAL calibration tooling.
 * **Programs:**
   * **next-dsky**: Full-stack Next.js application that serves as the main DSKY UI and backend. Handles serial communication with the PCB, WebSocket connections to AGC simulators, display rendering, and configuration.    * Requirements: NodeJS >18
@@ -60,6 +53,13 @@ The ``.f3d`` is a binary file that git cannot merge, so keep each pull request t
   * **click-generator**: Python program that procedurally generates relay clicking audio sequences to emulate the DSKY's relay boxes.
 * **Boards**
   * **Single_board**: Unified KiCad PCB project containing the keyboard matrix, alarm lights, serial interface, and backlight driver. The ``production`` folder contains ready-to-order JLCPCB fabrication files.
+
+## Contributing to the 3D models
+1. Open ``3D Models/DSKY.f3d`` in Fusion 360 (File → Open → Open from my computer).
+2. Make your change and test-print the parts you touched.
+3. Open a pull request with the updated ``DSKY.f3d`` and the printable file you tested (.3mf or .stl), plus a photo of the print if you can.
+
+The ``.f3d`` is a binary file that git cannot merge, so keep each pull request to one change and update it only when something real changed.
 
 ## License
 
