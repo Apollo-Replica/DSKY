@@ -1,0 +1,37 @@
+[package]
+name = "next-dsky-desktop"
+version = "0.0.0" # the real version comes from DSKY_VERSION at build time (build.rs)
+edition = "2021"
+publish = false
+description = "Next DSKY desktop app for Windows: a WebView2 window around the DSKY server"
+
+[[bin]]
+name = "next-dsky"
+path = "src/main.rs"
+
+[dependencies]
+tao = "=0.37.2"
+wry = { version = "=0.57.1", features = ["devtools"] }
+muda = "=0.21.2"
+# Same version wry uses; only for the accelerator-key hook.
+webview2-com = "=0.39.1"
+serde_json = "=1.0.154"
+windows-sys = { version = "=0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+embed-resource = "=3.0.12"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

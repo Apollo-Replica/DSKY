@@ -50,7 +50,7 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
 * **Programs:**
   * **next-dsky**: Full-stack Next.js application that serves as the main DSKY UI and backend. Handles serial communication with the PCB, WebSocket connections to AGC simulators, display rendering, and configuration.    * Requirements: NodeJS >18
     * Running: ``npm install``, ``npm run build``, then ``npm start`` (or use ``start.bat`` from the repo root)
-    * Windows desktop app (Electron, ``desktop/``): ``npm run package:windows`` builds the installer (see ``windows/package.mjs``); releases attach it automatically.
+    * Windows desktop app (Rust + WebView2, ``desktop/``): ``npm run package:windows`` builds the installer (see ``windows/package.mjs``); releases attach it automatically.
   * **DSKY-Bridge**: Submodule ([nhadrian/DSKY-Bridge](https://github.com/nhadrian/DSKY-Bridge)) — bridge utility for the DSKY.
   * **nassp-cloud**: Node.js service that monitors NASSP (orbiter simulator) telemetry via WebSocket and manages automatic restarts.
   * **click-generator**: Python program that procedurally generates relay clicking audio sequences to emulate the DSKY's relay boxes.

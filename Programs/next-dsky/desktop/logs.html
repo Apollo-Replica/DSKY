@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <title>Next DSKY – Logs</title>
 <style>
   :root { color-scheme: dark; }
@@ -29,15 +28,18 @@
 </header>
 <pre id="log"></pre>
 <script>
+  // Bridge to the app (Rust): window.ipc.postMessage(...) up,
+  // window.setLines / window.addLines down.
   const logEl = document.getElementById('log')
   const filterEl = document.getElementById('filter')
   const followEl = document.getElementById('follow')
+  const MAX = 5000
   let lines = []
 
   const lineNode = (line) => {
     const div = document.createElement('div')
-    if (/^\S+ \S+ (WARN) /.test(line)) div.className = 'warn'
-    else if (/^\S+ \S+ (ERROR) /.test(line)) div.className = 'error'
+    if (/^\S+ \S+ WARN /.test(line)) div.className = 'warn'
+    else if (/^\S+ \S+ ERROR /.test(line)) div.className = 'error'
     const ts = document.createElement('span')
     ts.className = 'ts'
     ts.textContent = line.slice(0, 23)
@@ -54,20 +56,29 @@
     scroll()
   }
 
-  window.dskyLogs.get().then((initial) => { lines = initial.slice(); render() })
-  window.dskyLogs.onLine((line) => {
-    lines.push(line)
-    if (lines.length > 5000) lines.shift()
-    if (matches(line)) {
-      logEl.append(lineNode(line))
-      if (logEl.childElementCount > 5000) logEl.firstChild.remove()
-      scroll()
+  window.setLines = (all) => { lines = all.slice(-MAX); render() }
+  window.addLines = (more) => {
+    for (const line of more) {
+      lines.push(line)
+      if (matches(line)) logEl.append(lineNode(line))
     }
-  })
+    if (lines.length > MAX) lines.splice(0, lines.length - MAX)
+    while (logEl.childElementCount > MAX) logEl.firstChild.remove()
+    scroll()
+  }
+
   filterEl.addEventListener('input', render)
   followEl.addEventListener('change', scroll)
-  document.getElementById('copy').addEventListener('click', () => navigator.clipboard.writeText(lines.filter(matches).join('\n')))
-  document.getElementById('folder').addEventListener('click', () => window.dskyLogs.openFolder())
+  document.getElementById('copy').addEventListener('click', () => {
+    const text = document.createElement('textarea')
+    text.value = lines.filter(matches).join('\n')
+    document.body.append(text)
+    text.select()
+    document.execCommand('copy')
+    text.remove()
+  })
+  document.getElementById('folder').addEventListener('click', () => window.ipc.postMessage('open-folder'))
+  window.ipc.postMessage('ready')
 </script>
 </body>
 </html>

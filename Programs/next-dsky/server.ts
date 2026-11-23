@@ -1,5 +1,5 @@
 // Command-line entry point (Orange Pi, development, start.bat).
-// The Windows desktop app starts the same server from desktop/main.ts.
+// The Windows desktop app (desktop/, Rust) runs it bundled as server.cjs.
 
 import { exec } from 'child_process'
 import path from 'path'
@@ -18,6 +18,7 @@ program
     .option('-p, --port <number>', 'HTTP/WS port', '3000')
     .option('--data-dir <path>', 'Folder for .env and saved settings (default: the app folder)')
     .option('--open', 'Open the DSKY in the browser once the server is up')
+    .option('--any-port', 'If the port is taken, use any free one (the desktop app reads the "Ready on" line)')
 program.parse()
 const options = program.opts()
 
@@ -34,6 +35,7 @@ startServer({
     appDir,
     dataDir: path.resolve(options.dataDir || process.env.DSKY_DATA_DIR || appDir),
     port: parseInt(options.port || '3000'),
+    anyPortIfBusy: !!options.anyPort,
     dev: process.env.NODE_ENV !== 'production',
 }).then(({ url }) => {
     if (options.open) openBrowser(url)

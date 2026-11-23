@@ -1,0 +1,34 @@
+#pragma code_page(65001)
+#include <winver.h>
+
+// Resource 1: app icon (exe icon in Explorer, and the window icon at runtime)
+1 ICON "@ICON@"
+
+// Common controls v6 + per-monitor DPI awareness (RT_MANIFEST)
+1 24 "@MANIFEST@"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @VERSION_COMMAS@
+PRODUCTVERSION @VERSION_COMMAS@
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Apollo Replica"
+            VALUE "FileDescription", "Next DSKY"
+            VALUE "FileVersion", "@VERSION@"
+            VALUE "InternalName", "Next DSKY"
+            VALUE "LegalCopyright", "CC BY-NC-SA 4.0"
+            VALUE "OriginalFilename", "Next DSKY.exe"
+            VALUE "ProductName", "Next DSKY"
+            VALUE "ProductVersion", "@VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

@@ -1,4 +1,5 @@
-; Inno Setup script for the Next DSKY desktop app. Built by windows/package.mjs,
+; Inno Setup script for the Next DSKY desktop app (desktop/, Rust + WebView2,
+; with the DSKY server in server/). Built by windows/package.mjs,
 ; which passes AppVersion, StageDir, OutputDir and OutputName.
 ;
 ; Installs per user (no admin prompt) into %LOCALAPPDATA%\Programs\Next DSKY.
@@ -44,7 +45,7 @@ UninstallDisplayName={#AppName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-; A running copy is closed in PrepareToInstall (Restart Manager can't close Electron).
+; A running copy is closed in PrepareToInstall, matched by path.
 CloseApplications=no
 
 [Languages]
@@ -60,9 +61,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "autostart"; Description: "{cm:AutoStart}"; Flags: unchecked
 
 [InstallDelete]
-; Drop the previous version's app and Electron files so stale ones don't linger.
-Type: filesandordirs; Name: "{app}\resources"
-Type: filesandordirs; Name: "{app}\locales"
+; Drop the previous version's server so stale files don't linger.
+Type: filesandordirs; Name: "{app}\server"
 
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -76,21 +76,44 @@ Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
-; Close the app before its files are removed. Matched by full path, so
-; nothing else is touched.
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -Command ""Get-Process -Name 'Next DSKY' -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -eq '{app}\{#AppExe}' } | Stop-Process -Force"""; Flags: runhidden; RunOnceId: "StopApp"
+; Close the app and its server before their files are removed. Matched by
+; their path inside {app}, so nothing else is touched.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -Command ""Get-Process -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -like '{app}\*' } | Stop-Process -Force"""; Flags: runhidden; RunOnceId: "StopApp"
 
 [Code]
-// Closes a running copy of this install (matched by full path) so its files
-// can be replaced. Settings are already on disk, nothing is lost.
+// Closes a running copy of this install (the app and its server, matched by
+// their path inside {app}) so its files can be replaced. Settings are on disk.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
 begin
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    '-NoProfile -NonInteractive -Command "Get-Process -Name ''Next DSKY'' -ErrorAction SilentlyContinue | ' +
-    'Where-Object { $_.Path -eq ''' + ExpandConstant('{app}\{#AppExe}') + ''' } | Stop-Process -Force; ' +
+    '-NoProfile -NonInteractive -Command "Get-Process -ErrorAction SilentlyContinue | ' +
+    'Where-Object { $_.Path -like ''' + ExpandConstant('{app}') + '\*'' } | Stop-Process -Force; ' +
     'Start-Sleep -Milliseconds 500"',
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := '';
+end;
+
+// The app's window is WebView2 (the Edge engine in Windows 10 and 11). It is
+// almost always there; if not, offer Microsoft's download page.
+function WebView2Installed(): Boolean;
+var
+  Version: String;
+begin
+  Result :=
+    RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) or
+    RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) or
+    RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version);
+  Result := Result and (Version <> '') and (Version <> '0.0.0.0');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ErrorCode: Integer;
+begin
+  if (CurStep = ssPostInstall) and not WizardSilent() and not WebView2Installed() then
+    if MsgBox('{#AppName} needs the Microsoft Edge WebView2 Runtime, which is not on this PC. ' +
+              'Open its download page now?', mbConfirmation, MB_YESNO) = IDYES then
+      ShellExec('open', 'https://go.microsoft.com/fwlink/p/?LinkId=2124703', '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
 end;

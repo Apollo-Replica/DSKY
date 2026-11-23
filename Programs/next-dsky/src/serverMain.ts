@@ -1,6 +1,6 @@
 // Starts the DSKY server: HTTP (frontend), WebSocket (/ws) and the server-side
 // logic (serial, integrations, mDNS). Used by server.ts (CLI: Orange Pi, dev)
-// and by the Windows desktop app (desktop/main.ts).
+// and, bundled into server.cjs, by the Windows desktop app (desktop/).
 
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'http'
 import fs from 'fs'
