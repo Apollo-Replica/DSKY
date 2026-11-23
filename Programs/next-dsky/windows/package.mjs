@@ -32,7 +32,17 @@ const stage = path.join(dist, 'windows', 'app')
 const cache = path.join(dist, 'cache')
 
 const pkg = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'))
-const version = process.env.DSKY_VERSION || pkg.version
+// CI stamps package.json from the release tag. Local builds take the version
+// from git (e.g. 0.4.1-3-gec377c4: 3 commits after v0.4.1).
+const gitVersion = () => {
+    try {
+        return execSync('git describe --tags --match "v[0-9]*"', { cwd: project, encoding: 'utf8' }).trim().replace(/^v/, '')
+    } catch {
+        return null
+    }
+}
+const version = process.env.DSKY_VERSION || (process.env.CI ? pkg.version : gitVersion() || pkg.version)
+console.log(`> Version ${version}`)
 
 const run = (cmd, args) => {
     console.log(`$ ${cmd} ${args.join(' ')}`)
