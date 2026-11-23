@@ -3,8 +3,8 @@ name: Release device package
 # Builds a ready-to-run next-dsky bundle for the Orange Pi (linux-arm64) and a
 # Windows installer, and attaches both to a GitHub release. DSKYs in the field
 # download the Pi package through the on-device updater (SETTINGS > UPDATE) —
-# they never build anything themselves. PC users download the .exe installer,
-# which brings its own Node runtime (nothing else to install).
+# they never build anything themselves. PC users download the .exe installer:
+# a self-contained desktop app (Electron) with its own window.
 #
 # To publish an update: git tag v0.2.0 && git push origin v0.2.0
 # Running it by hand on a branch builds both packages as workflow artifacts
@@ -17,6 +17,11 @@ on:
 
 permissions:
   contents: write
+
+env:
+  # electron is a devDependency only for its types; windows/package.mjs
+  # downloads and verifies the Electron build it ships.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 
 jobs:
   build-pi:

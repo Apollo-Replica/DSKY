@@ -12,8 +12,8 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
 **Do you just want to have a DSKY display in your web browser?**
   - On Windows, download ``next-dsky-<version>-windows-x64-setup.exe`` from the [latest release](https://github.com/Apollo-Replica/DSKY/releases/latest) and run it. Nothing else needs to be installed.
     - The installer is not code-signed, so Windows may show "Windows protected your PC": click **More info → Run anyway**.
-    - Open **Next DSKY** from the Start menu. It opens the DSKY in your browser; the console window shows the log, and closing it stops the DSKY.
-    - Settings are kept in ``%APPDATA%\Next DSKY`` and survive updates. To update, install the new version over the old one.
+    - Open **Next DSKY** from the Start menu: the DSKY runs in its own window. **View → Logs** (Ctrl+L) shows the log; **File → Open in Browser** opens it in a browser too.
+    - Settings and logs are kept in ``%APPDATA%\Next DSKY`` and survive updates. To update, install the new version over the old one (it closes the running app).
   - From source (any OS): make sure you have NodeJS > 18 and run start.bat (Windows) or ``npm install && npm run build && npm start`` in ``Programs/next-dsky``.
 
 **Do you want to build the whole DSKY replica?**
@@ -50,7 +50,7 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
 * **Programs:**
   * **next-dsky**: Full-stack Next.js application that serves as the main DSKY UI and backend. Handles serial communication with the PCB, WebSocket connections to AGC simulators, display rendering, and configuration.    * Requirements: NodeJS >18
     * Running: ``npm install``, ``npm run build``, then ``npm start`` (or use ``start.bat`` from the repo root)
-    * Windows installer: ``npm run package:windows`` builds it (see ``windows/package.mjs``); releases attach it automatically.
+    * Windows desktop app (Electron, ``desktop/``): ``npm run package:windows`` builds the installer (see ``windows/package.mjs``); releases attach it automatically.
   * **DSKY-Bridge**: Submodule ([nhadrian/DSKY-Bridge](https://github.com/nhadrian/DSKY-Bridge)) — bridge utility for the DSKY.
   * **nassp-cloud**: Node.js service that monitors NASSP (orbiter simulator) telemetry via WebSocket and manages automatic restarts.
   * **click-generator**: Python program that procedurally generates relay clicking audio sequences to emulate the DSKY's relay boxes.

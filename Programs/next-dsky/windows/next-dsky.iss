@@ -1,8 +1,9 @@
-; Inno Setup script for Next DSKY on Windows. Built by windows/package.mjs,
+; Inno Setup script for the Next DSKY desktop app. Built by windows/package.mjs,
 ; which passes AppVersion, StageDir, OutputDir and OutputName.
 ;
 ; Installs per user (no admin prompt) into %LOCALAPPDATA%\Programs\Next DSKY.
-; Settings live in %APPDATA%\Next DSKY, so upgrades and uninstalls keep them.
+; Settings and logs live in %APPDATA%\Next DSKY, so upgrades and uninstalls
+; keep them.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -18,9 +19,7 @@
 #endif
 
 #define AppName "Next DSKY"
-#define AppExe "next-dsky.exe"
-; Quotes doubled: it is expanded inside quoted section parameters.
-#define ServerArgs '""{app}\server.cjs"" --data-dir ""{userappdata}\Next DSKY""'
+#define AppExe "Next DSKY.exe"
 
 [Setup]
 AppId={{7C1B0F5E-4E7A-4C59-9A3B-2D5F1E0A6C11}
@@ -40,13 +39,13 @@ ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
 OutputBaseFilename={#OutputName}
 SetupIconFile=dsky.ico
-UninstallDisplayIcon={app}\dsky.ico
+UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-CloseApplications=force
-RestartApplications=no
+; A running copy is closed in PrepareToInstall (Restart Manager can't close Electron).
+CloseApplications=no
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
@@ -55,31 +54,43 @@ Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
 [CustomMessages]
 en.AutoStart=Start {#AppName} when I sign in to Windows
 es.AutoStart=Iniciar {#AppName} al entrar en Windows
-en.LaunchNow=Open {#AppName} now
-es.LaunchNow=Abrir {#AppName} ahora
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 Name: "autostart"; Description: "{cm:AutoStart}"; Flags: unchecked
 
 [InstallDelete]
-; Drop the previous version's frontend and modules so stale files don't linger.
-Type: filesandordirs; Name: "{app}\out"
-Type: filesandordirs; Name: "{app}\node_modules"
+; Drop the previous version's app and Electron files so stale ones don't linger.
+Type: filesandordirs; Name: "{app}\resources"
+Type: filesandordirs; Name: "{app}\locales"
 
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-; The console window shows the server log; closing it stops the DSKY.
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "{#ServerArgs} --open"; WorkingDir: "{app}"; IconFilename: "{app}\dsky.ico"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "{#ServerArgs} --open"; WorkingDir: "{app}"; IconFilename: "{app}\dsky.ico"; Tasks: desktopicon
-Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "{#ServerArgs}"; WorkingDir: "{app}"; IconFilename: "{app}\dsky.ico"; Flags: runminimized; Tasks: autostart
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; Tasks: autostart
 
 [Run]
-Filename: "{app}\{#AppExe}"; Parameters: "{#ServerArgs} --open"; WorkingDir: "{app}"; Description: "{cm:LaunchNow}"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
-; Stop a running server before its files are removed. Matched by full path,
-; so other node or DSKY processes are left alone.
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -Command ""Get-Process -Name next-dsky -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -eq '{app}\{#AppExe}' } | Stop-Process -Force"""; Flags: runhidden; RunOnceId: "StopServer"
+; Close the app before its files are removed. Matched by full path, so
+; nothing else is touched.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -Command ""Get-Process -Name 'Next DSKY' -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -eq '{app}\{#AppExe}' } | Stop-Process -Force"""; Flags: runhidden; RunOnceId: "StopApp"
+
+[Code]
+// Closes a running copy of this install (matched by full path) so its files
+// can be replaced. Settings are already on disk, nothing is lost.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -Command "Get-Process -Name ''Next DSKY'' -ErrorAction SilentlyContinue | ' +
+    'Where-Object { $_.Path -eq ''' + ExpandConstant('{app}\{#AppExe}') + ''' } | Stop-Process -Force; ' +
+    'Start-Sleep -Milliseconds 500"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := '';
+end;

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Next DSKY – Logs</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: #111; color: #d4d4d4; font: 12px/1.45 Consolas, "Cascadia Mono", monospace; }
+  header { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: #1b1b1b; border-bottom: 1px solid #2a2a2a; font-family: "Segoe UI", sans-serif; }
+  header input { flex: 1; min-width: 0; background: #0d0d0d; color: inherit; border: 1px solid #333; border-radius: 4px; padding: 4px 8px; font: inherit; }
+  header label { display: flex; gap: 4px; align-items: center; white-space: nowrap; color: #aaa; }
+  button { background: #2a2a2a; color: #ddd; border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  button:hover { background: #333; }
+  #log { flex: 1; overflow: auto; padding: 6px 10px; margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .warn { color: #e5c07b; }
+  .error { color: #ef6b73; }
+  .ts { color: #6b7280; }
+</style>
+</head>
+<body>
+<header>
+  <input id="filter" type="search" placeholder="Filter…" autofocus>
+  <label><input id="follow" type="checkbox" checked> Follow</label>
+  <button id="copy">Copy</button>
+  <button id="folder">Open log folder</button>
+</header>
+<pre id="log"></pre>
+<script>
+  const logEl = document.getElementById('log')
+  const filterEl = document.getElementById('filter')
+  const followEl = document.getElementById('follow')
+  let lines = []
+
+  const lineNode = (line) => {
+    const div = document.createElement('div')
+    if (/^\S+ \S+ (WARN) /.test(line)) div.className = 'warn'
+    else if (/^\S+ \S+ (ERROR) /.test(line)) div.className = 'error'
+    const ts = document.createElement('span')
+    ts.className = 'ts'
+    ts.textContent = line.slice(0, 23)
+    div.append(ts, document.createTextNode(line.slice(23)))
+    return div
+  }
+  const matches = (line) => {
+    const q = filterEl.value.trim().toLowerCase()
+    return !q || line.toLowerCase().includes(q)
+  }
+  const scroll = () => { if (followEl.checked) logEl.scrollTop = logEl.scrollHeight }
+  const render = () => {
+    logEl.replaceChildren(...lines.filter(matches).map(lineNode))
+    scroll()
+  }
+
+  window.dskyLogs.get().then((initial) => { lines = initial.slice(); render() })
+  window.dskyLogs.onLine((line) => {
+    lines.push(line)
+    if (lines.length > 5000) lines.shift()
+    if (matches(line)) {
+      logEl.append(lineNode(line))
+      if (logEl.childElementCount > 5000) logEl.firstChild.remove()
+      scroll()
+    }
+  })
+  filterEl.addEventListener('input', render)
+  followEl.addEventListener('change', scroll)
+  document.getElementById('copy').addEventListener('click', () => navigator.clipboard.writeText(lines.filter(matches).join('\n')))
+  document.getElementById('folder').addEventListener('click', () => window.dskyLogs.openFolder())
+</script>
+</body>
+</html>

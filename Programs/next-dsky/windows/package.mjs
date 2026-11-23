@@ -1,9 +1,13 @@
-// Builds the Windows install folder (dist/windows/app) and, if Inno Setup is
-// available, the installer (dist/next-dsky-<version>-windows-x64-setup.exe).
+// Builds the Windows desktop app (dist/windows/app) and, if Inno Setup is
+// available, its installer (dist/next-dsky-v<version>-windows-x64-setup.exe).
 //
-// The result runs on a bare Windows PC: it ships its own node runtime, the
-// static frontend (out/) and the server bundled into one file. Only the
-// packages with native parts (serialport, ps-list, pid-cwd) stay as files.
+// The app is Electron: its own window, the DSKY server running inside it, no
+// console and no browser. Layout of the install folder:
+//
+//   Next DSKY.exe, *.dll, locales/   Electron, renamed and with our icon
+//   resources/app/                   main.cjs (server + window, one bundle),
+//                                    out/ (static frontend), logs window,
+//                                    node_modules/ (only the native packages)
 //
 //   npm run package:windows                 # build + stage + installer
 //   ISCC="C:\path\to\ISCC.exe" npm run ...  # Inno Setup compiler location
@@ -16,19 +20,24 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Node runtime shipped inside the installer (LTS, x64).
-const NODE_VERSION = '24.22.2'
+// Electron shipped in the installer (its Node runs the server).
+const ELECTRON_VERSION = '45.2.3'
+const APP_NAME = 'Next DSKY'
+const EXE_NAME = `${APP_NAME}.exe`
 
-// Packages bundled as files, not into server.cjs: native addons or
+// Packages kept as files, not bundled into main.cjs: native addons or
 // helper .exe files located through __dirname.
 const EXTERNAL = ['serialport', 'pid-cwd', 'ps-list-commonjs']
-// Optional ws accelerators; ws works without them.
+// Never loaded in the packaged app (optional ws accelerators, Next dev server).
 const IGNORED = ['bufferutil', 'utf-8-validate', 'next']
+// Chromium UI languages kept (menus, dialogs); it falls back to en-US.
+const LOCALES = ['en-US', 'en-GB', 'es', 'es-419', 'fr', 'de', 'it', 'pt-BR', 'pt-PT']
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const project = path.resolve(here, '..')
 const dist = path.join(project, 'dist')
 const stage = path.join(dist, 'windows', 'app')
+const appRes = path.join(stage, 'resources', 'app')
 const cache = path.join(dist, 'cache')
 
 const pkg = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'))
@@ -48,35 +57,70 @@ const run = (cmd, args) => {
     console.log(`$ ${cmd} ${args.join(' ')}`)
     execFileSync(cmd, args, { stdio: 'inherit', cwd: project })
 }
-// 1. Frontend (static export to out/) and server bundle (dist/server.cjs)
+
+// 1. Frontend (static export to out/)
 if (!process.argv.includes('--skip-build')) {
     // npx is a .cmd on Windows, which only runs through a shell.
     console.log('$ npx next build')
     execSync('npx next build', { stdio: 'inherit', cwd: project })
 }
-const esbuild = await import('esbuild')
-await esbuild.build({
-    entryPoints: [path.join(project, 'server.ts')],
-    outfile: path.join(dist, 'server.cjs'),
-    bundle: true,
-    platform: 'node',
-    target: `node${NODE_VERSION.split('.')[0]}`,
-    format: 'cjs',
-    // The installed app is always production: static frontend, no Next.
-    define: { 'process.env.NODE_ENV': '"production"' },
-    external: [...EXTERNAL, ...IGNORED],
-    logLevel: 'warning',
-})
 
-// 2. Stage the install folder
+// 2. Electron, verified against the release's published checksums
+const zipName = `electron-v${ELECTRON_VERSION}-win32-x64.zip`
+const releaseUrl = `https://github.com/electron/electron/releases/download/v${ELECTRON_VERSION}`
+const zip = await download(`${releaseUrl}/${zipName}`, path.join(cache, zipName))
+const sums = await (await fetch(`${releaseUrl}/SHASUMS256.txt`)).text()
+const expected = sums.split('\n').find(l => l.trim().endsWith(`*${zipName}`) || l.trim().endsWith(` ${zipName}`))?.split(/\s+/)[0]
+const actual = createHash('sha256').update(fs.readFileSync(zip)).digest('hex')
+if (!expected || expected !== actual) throw new Error(`${zipName} checksum mismatch (${actual} != ${expected})`)
+
 fs.rmSync(stage, { recursive: true, force: true })
 fs.mkdirSync(stage, { recursive: true })
-fs.copyFileSync(path.join(dist, 'server.cjs'), path.join(stage, 'server.cjs'))
-fs.cpSync(path.join(project, 'out'), path.join(stage, 'out'), { recursive: true })
-fs.copyFileSync(path.join(here, 'dsky.ico'), path.join(stage, 'dsky.ico'))
-fs.writeFileSync(path.join(stage, 'package.json'), JSON.stringify({
-    name: 'next-dsky', version, private: true,
-    description: 'Next DSKY for Windows (installed build)',
+// Windows' own tar (bsdtar) reads zip files.
+run(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe'), ['-xf', zip, '-C', stage])
+fs.renameSync(path.join(stage, 'electron.exe'), path.join(stage, EXE_NAME))
+fs.rmSync(path.join(stage, 'resources', 'default_app.asar'), { force: true })
+for (const file of fs.readdirSync(path.join(stage, 'locales'))) {
+    if (!LOCALES.includes(path.basename(file, '.pak'))) fs.rmSync(path.join(stage, 'locales', file))
+}
+
+// Icon and file details shown by Explorer, Task Manager and the firewall prompt.
+const numericVersion = (version.match(/^\d+\.\d+\.\d+/)?.[0] || '0.0.0') + '.0'
+run(path.join(project, 'node_modules', 'rcedit', 'bin', 'rcedit-x64.exe'), [
+    path.join(stage, EXE_NAME),
+    '--set-icon', path.join(here, 'dsky.ico'),
+    '--set-file-version', numericVersion,
+    '--set-product-version', numericVersion,
+    '--set-version-string', 'ProductName', APP_NAME,
+    '--set-version-string', 'FileDescription', APP_NAME,
+    '--set-version-string', 'CompanyName', 'Apollo Replica',
+    '--set-version-string', 'OriginalFilename', EXE_NAME,
+    '--set-version-string', 'InternalName', APP_NAME,
+    '--set-version-string', 'LegalCopyright', 'CC BY-NC-SA 4.0',
+])
+
+// 3. The app: main process bundle (server + window), frontend, logs window
+const esbuild = await import('esbuild')
+await esbuild.build({
+    entryPoints: [path.join(project, 'desktop', 'main.ts')],
+    outfile: path.join(appRes, 'main.cjs'),
+    bundle: true,
+    platform: 'node',
+    target: 'node22',
+    format: 'cjs',
+    // The packaged app is always production: static frontend, no Next.
+    define: { 'process.env.NODE_ENV': '"production"' },
+    external: ['electron', ...EXTERNAL, ...IGNORED],
+    logLevel: 'warning',
+})
+fs.cpSync(path.join(project, 'out'), path.join(appRes, 'out'), { recursive: true })
+for (const file of ['logs.html', 'logs-preload.cjs']) {
+    fs.copyFileSync(path.join(project, 'desktop', file), path.join(appRes, file))
+}
+fs.copyFileSync(path.join(here, 'dsky.ico'), path.join(appRes, 'dsky.ico'))
+fs.writeFileSync(path.join(appRes, 'package.json'), JSON.stringify({
+    name: 'next-dsky', productName: APP_NAME, version, private: true, main: 'main.cjs',
+    description: 'Next DSKY desktop app',
 }, null, 2) + '\n')
 
 // Copy the external packages and everything they depend on, exactly as
@@ -93,8 +137,7 @@ const copyPackage = (name, fromDir) => {
     const pkgDir = path.dirname(pkgJson)
     if (copied.has(pkgDir)) return
     copied.add(pkgDir)
-    const rel = path.relative(project, pkgDir)
-    fs.cpSync(pkgDir, path.join(stage, rel), { recursive: true })
+    fs.cpSync(pkgDir, path.join(appRes, path.relative(project, pkgDir)), { recursive: true })
     const meta = JSON.parse(fs.readFileSync(pkgJson, 'utf8'))
     for (const dep of Object.keys({ ...meta.dependencies, ...meta.optionalDependencies })) {
         if (IGNORED.includes(dep)) continue
@@ -104,24 +147,13 @@ const copyPackage = (name, fromDir) => {
 for (const name of EXTERNAL) copyPackage(name, project)
 
 // Keep only the Windows x64 native builds.
-for (const prebuilds of findDirs(path.join(stage, 'node_modules'), 'prebuilds')) {
+for (const prebuilds of findDirs(path.join(appRes, 'node_modules'), 'prebuilds')) {
     for (const entry of fs.readdirSync(prebuilds)) {
         if (entry !== 'win32-x64') fs.rmSync(path.join(prebuilds, entry), { recursive: true, force: true })
     }
 }
 
-// 3. Node runtime, verified against nodejs.org's published checksums.
-//    Renamed so Task Manager and the firewall prompt show "next-dsky.exe".
-const nodeExe = await download(`https://nodejs.org/dist/v${NODE_VERSION}/win-x64/node.exe`,
-    path.join(cache, `node-v${NODE_VERSION}-win-x64.exe`))
-const sums = await (await fetch(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt`)).text()
-const expected = sums.split('\n').find(l => l.trim().endsWith(' win-x64/node.exe'))?.split(/\s+/)[0]
-const actual = createHash('sha256').update(fs.readFileSync(nodeExe)).digest('hex')
-if (!expected || expected !== actual) throw new Error(`node.exe checksum mismatch (${actual} != ${expected})`)
-fs.copyFileSync(nodeExe, path.join(stage, 'next-dsky.exe'))
-
-const size = dirSize(stage)
-console.log(`> Staged ${stage} (${(size / 1e6).toFixed(1)} MB)`)
+console.log(`> Staged ${stage} (${(dirSize(stage) / 1e6).toFixed(1)} MB)`)
 
 // 4. Installer
 const iscc = process.env.ISCC || findIscc()
