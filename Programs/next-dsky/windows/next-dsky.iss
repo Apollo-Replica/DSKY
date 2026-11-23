@@ -19,7 +19,8 @@
 
 #define AppName "Next DSKY"
 #define AppExe "next-dsky.exe"
-#define ServerArgs """{app}\server.cjs"" --data-dir ""{userappdata}\Next DSKY"""
+; Quotes doubled: it is expanded inside quoted section parameters.
+#define ServerArgs '""{app}\server.cjs"" --data-dir ""{userappdata}\Next DSKY""'
 
 [Setup]
 AppId={{7C1B0F5E-4E7A-4C59-9A3B-2D5F1E0A6C11}
