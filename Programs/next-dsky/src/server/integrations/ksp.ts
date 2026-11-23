@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as net from 'net'
-import * as psList from 'ps-list-commonjs'
+import psList from 'ps-list-commonjs'
 import pidCwd from 'pid-cwd'
 import { createWatcher } from '../filesystem'
 import { AgcIntegration } from './AgcIntegration'
@@ -61,7 +61,7 @@ const kOSJSONtoNormalJSON = (kOSJSON: any): any => {
 }
 
 const getKSPPath = async (): Promise<string | undefined> => {
-    const list = await (psList as any)()
+    const list = await psList()
     const kspProcess = list.find((p: any) => p.name === 'KSP_x64.exe')
     if (kspProcess) {
         const cwd = await pidCwd(kspProcess.pid)

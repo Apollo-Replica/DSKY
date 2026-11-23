@@ -1,9 +1,10 @@
 name: Release device package
 
-# Builds a ready-to-run next-dsky bundle for the Orange Pi (linux-arm64) and
-# attaches it to a GitHub release. DSKYs in the field download these packages
-# through the on-device updater (SETTINGS > UPDATE) — they never build anything
-# themselves.
+# Builds a ready-to-run next-dsky bundle for the Orange Pi (linux-arm64) and a
+# Windows installer, and attaches both to a GitHub release. DSKYs in the field
+# download the Pi package through the on-device updater (SETTINGS > UPDATE) —
+# they never build anything themselves. PC users download the .exe installer,
+# which brings its own Node runtime (nothing else to install).
 #
 # To publish an update: git tag v0.2.0 && git push origin v0.2.0
 
@@ -16,7 +17,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-pi:
     name: Build next-dsky (linux-arm64)
     runs-on: ubuntu-24.04-arm
     defaults:
@@ -53,14 +54,83 @@ jobs:
             .
           cd "$RUNNER_TEMP"
           sha256sum "$TARBALL" > "$TARBALL.sha256"
+          mkdir -p "$RUNNER_TEMP/release"
+          mv "$TARBALL" "$TARBALL.sha256" "$RUNNER_TEMP/release/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pi
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows installer (x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: Programs/next-dsky
+    env:
+      INNO_VERSION: 6.7.4
+      INNO_SHA256: a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Programs/next-dsky/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Stamp version from tag
+        run: npm pkg set version="${GITHUB_REF_NAME#v}"
+
+      - name: Install Inno Setup
+        run: |
+          TAG="is-${INNO_VERSION//./_}"
+          curl -fsSL -o "$RUNNER_TEMP/innosetup.exe" \
+            "https://github.com/jrsoftware/issrc/releases/download/$TAG/innosetup-$INNO_VERSION.exe"
+          echo "$INNO_SHA256  $RUNNER_TEMP/innosetup.exe" | sha256sum -c -
+          "$RUNNER_TEMP/innosetup.exe" //VERYSILENT //SUPPRESSMSGBOXES //NORESTART //CURRENTUSER //DIR="$RUNNER_TEMP\inno"
+          test -f "$RUNNER_TEMP/inno/ISCC.exe"
+
+      - name: Build installer
+        run: ISCC="$RUNNER_TEMP\inno\ISCC.exe" npm run package:windows
+
+      - name: Package
+        run: |
+          SETUP="next-dsky-${GITHUB_REF_NAME}-windows-x64-setup.exe"
+          test -f "dist/$SETUP"
+          mkdir -p "$RUNNER_TEMP/release"
+          cp "dist/$SETUP" "$RUNNER_TEMP/release/"
+          cd "$RUNNER_TEMP/release"
+          sha256sum "$SETUP" > "$SETUP.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [build-pi, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
 
       - name: Publish release
-        working-directory: ${{ runner.temp }}
+        working-directory: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TARBALL="next-dsky-${GITHUB_REF_NAME}-linux-arm64.tar.gz"
-
+          ls -la
           # Start from a clean slate: remove any prior release for this tag
           # (keep the git tag itself) so the create below is deterministic.
           gh release delete "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag=false 2>/dev/null || true
@@ -71,14 +141,14 @@ jobs:
             --generate-notes \
             --latest \
             --verify-tag \
-            "$TARBALL" "$TARBALL.sha256"
+            ./*
 
-          # Assert the release actually exists with both assets attached —
+          # Assert the release actually exists with every asset attached —
           # fail loudly here rather than reporting a misleading success.
           echo "Published assets:"
           gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
           ASSET_COUNT=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
-          if [ "$ASSET_COUNT" -lt 2 ]; then
-            echo "::error::Expected 2 assets, found $ASSET_COUNT"
+          if [ "$ASSET_COUNT" -lt 4 ]; then
+            echo "::error::Expected 4 assets, found $ASSET_COUNT"
             exit 1
           fi

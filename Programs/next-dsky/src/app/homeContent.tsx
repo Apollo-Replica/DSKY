@@ -19,8 +19,16 @@ const DSKY_AR = 484 / 558
 
 export type DisplayVariant = 'amoled544' | 'lcd480'
 
-export default function HomeContent({ envDisplay }: { envDisplay: DisplayVariant }) {
+declare global {
+  interface Window { __DSKY_ENV__?: { display?: DisplayVariant } }
+}
+
+export default function HomeContent() {
   const searchParams = useSearchParams()
+
+  // Default display variant from the server's DSKY_DISPLAY (set by /dsky-env.js)
+  const envDisplay: DisplayVariant =
+    typeof window !== 'undefined' && window.__DSKY_ENV__?.display === 'lcd480' ? 'lcd480' : 'amoled544'
 
   // Display variant: ?display=lcd480 or ?display=amoled544 overrides the env default
   const displayParam = searchParams.get('display')

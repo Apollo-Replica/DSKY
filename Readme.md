@@ -10,8 +10,11 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
 **Need Help? Join our Discord [here](https://discord.gg/CHZaYj5UNu)**
 
 **Do you just want to have a DSKY display in your web browser?**
-  - Make sure you have NodeJS > 18
-  - Run start.bat and answer the prompts
+  - On Windows, download ``next-dsky-<version>-windows-x64-setup.exe`` from the [latest release](https://github.com/Apollo-Replica/DSKY/releases/latest) and run it. Nothing else needs to be installed.
+    - The installer is not code-signed, so Windows may show "Windows protected your PC": click **More info → Run anyway**.
+    - Open **Next DSKY** from the Start menu. It opens the DSKY in your browser; the console window shows the log, and closing it stops the DSKY.
+    - Settings are kept in ``%APPDATA%\Next DSKY`` and survive updates. To update, install the new version over the old one.
+  - From source (any OS): make sure you have NodeJS > 18 and run start.bat (Windows) or ``npm install && npm run build && npm start`` in ``Programs/next-dsky``.
 
 **Do you want to build the whole DSKY replica?**
   - Get the parts: see the [bill of materials](Documentation/bill-of-materials.md).
@@ -31,8 +34,7 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
   - Set up the Orange Pi:
     - See the [Orange Pi setup guide](Documentation/orangepi-setup.md).
     - Pre-built .img files have been shared around the community, but they are not recommended as they may be out of date.
-  - Make sure you have NodeJS > 18
-  - Run start.bat on your PC to launch the web display
+  - Install Next DSKY on your PC (see above) to launch the web display
 
 **Already have a DSKY and want the latest software?**
   - Updates are installed from the DSKY itself: open the menu (press NOUN three times) and go to **SETTINGS → UPDATE**. See [Documentation/updates.md](Documentation/updates.md).
@@ -47,7 +49,8 @@ This projects aims to create an affordable and easy to manufacture, yet as reali
 * **Firmware:** PlatformIO project containing the firmware for the bare ATmega328P on the PCB. Includes OSCCAL calibration tooling.
 * **Programs:**
   * **next-dsky**: Full-stack Next.js application that serves as the main DSKY UI and backend. Handles serial communication with the PCB, WebSocket connections to AGC simulators, display rendering, and configuration.    * Requirements: NodeJS >18
-    * Running: ``npm install`` then ``npm start`` (or use ``start.bat`` from the repo root)
+    * Running: ``npm install``, ``npm run build``, then ``npm start`` (or use ``start.bat`` from the repo root)
+    * Windows installer: ``npm run package:windows`` builds it (see ``windows/package.mjs``); releases attach it automatically.
   * **DSKY-Bridge**: Submodule ([nhadrian/DSKY-Bridge](https://github.com/nhadrian/DSKY-Bridge)) — bridge utility for the DSKY.
   * **nassp-cloud**: Node.js service that monitors NASSP (orbiter simulator) telemetry via WebSocket and manages automatic restarts.
   * **click-generator**: Python program that procedurally generates relay clicking audio sequences to emulate the DSKY's relay boxes.
